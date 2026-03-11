@@ -1,5 +1,6 @@
 # jaja
 
+JAJA: Just Automate Junk Assignments
 A web app with a Next.js frontend and Go backend.
 
 ## Prerequisites
