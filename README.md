@@ -28,7 +28,24 @@ go mod download
 go run .
 ```
 
+### Database
+
+Populate your `.env` in the project root directory
+
+```
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=example_db
+```
+
+Run the docker container
+
+```bash
+docker compose up
+```
+
 ## Tech Stack
 
 - **Frontend**: Next.js, React, Tailwind CSS, TypeScript
 - **Backend**: Go, Gin
+- **Database** PostgreSQL
