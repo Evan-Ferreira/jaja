@@ -28,7 +28,14 @@ go mod download
 go run .
 ```
 
+### Database
+
+```bash
+docker compose up
+```
+
 ## Tech Stack
 
 - **Frontend**: Next.js, React, Tailwind CSS, TypeScript
 - **Backend**: Go, Gin
+- **Database** PostgreSQL
