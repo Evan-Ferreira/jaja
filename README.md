@@ -30,6 +30,16 @@ go run .
 
 ### Database
 
+Populate your `.env` in the project root directory
+
+```
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DB=example_db
+```
+
+Run the docker container
+
 ```bash
 docker compose up
 ```
