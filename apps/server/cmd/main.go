@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"backend/internal/api/routes/d2l"
+	"server/internal/api/routes/d2l"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
