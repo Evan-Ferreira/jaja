@@ -4,20 +4,18 @@ import (
 	"fmt"
 	"os"
 
-	"server/internal/api/routes/d2l"
+	"server/internal/config"
+	"server/internal/routes/d2l"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 )
 
 func main() {
-	router := gin.Default()
-	envErr := godotenv.Load()
+	config.LoadConfig()
+	config.ConnectDB()
 
-	if envErr != nil {
-		fmt.Println("Error loading .env file", envErr)
-	}
+	router := gin.Default()
 
 	config := cors.DefaultConfig()
 	config.AllowOrigins = []string{os.Getenv("FRONTEND_URL")}
@@ -29,7 +27,7 @@ func main() {
 	}
 
 	port := os.Getenv("PORT")
-	fmt.Println("Starting server on http://localhost:" + port + "...")
+	fmt.Println("Starting server on port " + port + "...")
 
 	router.Run(":" + port)
 }
