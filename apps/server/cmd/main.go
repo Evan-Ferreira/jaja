@@ -31,5 +31,5 @@ func main() {
 	port := os.Getenv("PORT")
 	fmt.Println("Starting server on http://localhost:" + port + "...")
 
-	router.Run("localhost:" + port)
+	router.Run(":" + port)
 }

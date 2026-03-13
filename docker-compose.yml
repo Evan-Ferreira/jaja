@@ -11,5 +11,32 @@ services:
         ports:
             - '5432:5432'
 
+    server:
+        build:
+            context: ./apps/server
+            dockerfile: dockerfile
+        ports:
+            - '8080:8080'
+        volumes:
+            - ./apps/server:/app
+        env_file:
+            - .env
+        depends_on:
+            - db
+
+    client:
+        build:
+            context: ./apps/client
+            dockerfile: dockerfile
+        ports:
+            - '3000:3000'
+        volumes:
+            - ./apps/client:/app
+            - /app/node_modules
+        env_file:
+            - .env
+        depends_on:
+            - server
+
 volumes:
     pgdata:
