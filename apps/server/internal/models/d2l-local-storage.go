@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type D2LLocalStorage struct {
+type D2LLocalStorageSession struct {
 	ID        uuid.UUID `json:"id" gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
 	CreatedAt time.Time `json:"created_at" gorm:"type:timestamptz;default:now()"`
 	UpdatedAt time.Time `json:"updated_at" gorm:"type:timestamptz;default:now()"`
@@ -20,6 +20,6 @@ type D2LLocalStorage struct {
 	PdfjsHistory        string `json:"pdfjs.history" gorm:"column:pdfjs_history;type:text"`
 }
 
-func (D2LLocalStorage) TableName() string {
+func (D2LLocalStorageSession) TableName() string {
 	return "d2l_local_storages"
 }

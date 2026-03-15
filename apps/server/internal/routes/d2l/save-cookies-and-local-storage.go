@@ -4,33 +4,27 @@ import (
 	"log"
 	"net/http"
 
+	"server/internal/config"
 	"server/internal/models"
 
-	"server/internal"
-
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 type D2LAuthRequest struct {
-	Cookies      models.D2LCookies `json:"cookies"`
-	LocalStorage models.D2LLocalStorage `json:"local_storage"`
+	Cookies      models.D2LCookieSession `json:"cookies"`
+	LocalStorage models.D2LLocalStorageSession `json:"local_storage"`
 }
 
 func SaveCookiesAndLocalStorage(c *gin.Context) {
 	var req D2LAuthRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Println("Failed to bind JSON: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		log.Printf("Failed to bind JSON: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing D2L cookies or local storage field(s)"})
 		return
 	}
 
-	result := internal.DB.FirstOrCreate(&models.User{
-		ID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
-	})
-
-	cookies := models.D2LCookies{
-		UserId: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+	userCookieSession := models.D2LCookieSession{
+		UserId: models.TestUser.ID,
 		Clck: req.Cookies.Clck,
 		Clsk: req.Cookies.Clsk,
 		D2LSameSiteCanaryA: req.Cookies.D2LSameSiteCanaryA,
@@ -39,8 +33,8 @@ func SaveCookiesAndLocalStorage(c *gin.Context) {
 		D2LSessionVal: req.Cookies.D2LSessionVal,
 	}
 
-	localStorage := models.D2LLocalStorage{
-		UserId: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+	userLocalStorageSession := models.D2LLocalStorageSession{
+		UserId: models.TestUser.ID,
 		D2LFetchTokens: req.LocalStorage.D2LFetchTokens,
 		SessionExpired: req.LocalStorage.SessionExpired,
 		SessionLastAccessed: req.LocalStorage.SessionLastAccessed,
@@ -50,17 +44,17 @@ func SaveCookiesAndLocalStorage(c *gin.Context) {
 		PdfjsHistory: req.LocalStorage.PdfjsHistory,
 	}
 
-	result = internal.DB.Create(&cookies)
+	result := config.DB.Create(&userCookieSession)
 	if result.Error != nil {
-		log.Println("Failed to create cookies: %v", result.Error)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+		log.Printf("Failed save cookie session to database: %v", result.Error)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed save cookie session to database"})
 		return
 	}
 
-	result = internal.DB.Create(&localStorage)
+	result = config.DB.Create(&userLocalStorageSession)
 	if result.Error != nil {
-		log.Println("Failed to create local storage: %v", result.Error)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+		log.Printf("Failed save local storage session to database: %v", result.Error)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed save local storage session to database"})
 		return
 	}
 

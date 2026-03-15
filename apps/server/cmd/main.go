@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"server/internal"
 	"server/internal/config"
 	"server/internal/routes/d2l"
 
@@ -14,7 +13,7 @@ import (
 
 func main() {
 	config.LoadConfig()
-	internal.ConnectDB()
+	config.ConnectDB()
 
 	router := gin.Default()
 

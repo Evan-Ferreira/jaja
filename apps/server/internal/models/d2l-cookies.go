@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type D2LCookies struct {
+type D2LCookieSession struct {
 	ID        uuid.UUID `json:"id" gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
 	CreatedAt time.Time `json:"created_at" gorm:"type:timestamptz;default:now()"`
 	UpdatedAt time.Time `json:"updated_at" gorm:"type:timestamptz;default:now()"`
@@ -19,6 +19,6 @@ type D2LCookies struct {
 	D2LSessionVal       string `json:"d2lSessionVal" gorm:"column:d2l_session_val;type:text"`
 }
 
-func (D2LCookies) TableName() string {
+func (D2LCookieSession) TableName() string {
 	return "d2l_cookies"
 }
