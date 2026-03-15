@@ -127,7 +127,7 @@ The course content layer. Everything that lives inside a specific course: assign
 | Method | Endpoint                                                      | Description  |
 | ------ | ------------------------------------------------------------- | ------------ |
 | GET    | `/d2l/api/lp/1.30/users/whoami`                               | Your profile |
-| GET    | `/d2l/api/lp/1.30/enrollments/myenrollments/?orgUnitTypeId=3` | Courses only |
+ a
 
 ## Course Info
 
