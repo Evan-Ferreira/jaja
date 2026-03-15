@@ -16,6 +16,7 @@ func (User) TableName() string {
 	return "users"
 }
 
+// TODO: Remove this and add it to a seed file
 var TestUser = User{
 	ID: uuid.MustParse("00000000-0000-0000-0000-000000000001"),
 	CreatedAt: time.Now(),

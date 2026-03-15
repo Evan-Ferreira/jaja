@@ -23,6 +23,7 @@ func SaveCookiesAndLocalStorage(c *gin.Context) {
 		return
 	}
 
+	// TODO: move away from hardcoded test user id
 	userCookieSession := models.D2LCookieSession{
 		UserId: models.TestUser.ID,
 		Clck: req.Cookies.Clck,
@@ -33,6 +34,7 @@ func SaveCookiesAndLocalStorage(c *gin.Context) {
 		D2LSessionVal: req.Cookies.D2LSessionVal,
 	}
 
+	// TODO: move away from hardcoded test user id
 	userLocalStorageSession := models.D2LLocalStorageSession{
 		UserId: models.TestUser.ID,
 		D2LFetchTokens: req.LocalStorage.D2LFetchTokens,
