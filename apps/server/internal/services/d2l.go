@@ -4,6 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"server/internal/config"
+	"server/internal/models"
+
+	"github.com/google/uuid"
 )
 
 type D2LClient struct {
@@ -18,6 +23,24 @@ func NewD2LClient(token, baseURL string) *D2LClient {
 		baseURL: baseURL,
 		http:    &http.Client{},
 	}
+}
+
+func NewD2LClientFromDB(userID uuid.UUID) (*D2LClient, error) {
+	var session models.D2LLocalStorageSession
+	if result := config.DB.Where("user_id = ?", userID).Last(&session); result.Error != nil {
+		return nil, fmt.Errorf("d2l: no session found for user: %w", result.Error)
+	}
+
+	var fetchTokens models.D2LFetchTokens
+	if err := json.Unmarshal([]byte(session.D2LFetchTokens), &fetchTokens); err != nil {
+		return nil, fmt.Errorf("d2l: failed to parse stored token: %w", err)
+	}
+
+	if fetchTokens.Wildcard.AccessToken == "" {
+		return nil, fmt.Errorf("d2l: access token is empty in stored session")
+	}
+
+	return NewD2LClient(fetchTokens.Wildcard.AccessToken, config.D2LBaseURL), nil
 }
 
 func (c *D2LClient) get(path string, out any) error {

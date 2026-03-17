@@ -73,10 +73,10 @@ export default function CookieForm() {
                     <FieldSet>
                         <FieldLegend>D2L Cookies and Local Storage</FieldLegend>
                         <FieldDescription>
-                            We use your browser's D2L cookies and local storage
-                            to access your lectures and assignments. Your D2L
-                            info never leaves your browser and is never stored
-                            on our servers.
+                            Paste your D2L cookies and local storage below. We
+                            store these securely so we can access your lectures
+                            and assignments on your behalf. This includes your
+                            session tokens and authentication credentials.
                         </FieldDescription>
                     </FieldSet>
                     <FieldSet>

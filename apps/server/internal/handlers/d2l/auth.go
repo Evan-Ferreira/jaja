@@ -17,7 +17,7 @@ type authPayload struct {
 }
 
 type localStoragePayload struct {
-	FetchTokens    fetchTokens `json:"D2L.Fetch.Tokens"`
+	FetchTokens    models.D2LFetchTokens `json:"D2L.Fetch.Tokens"`
 	SessionExpired string      `json:"Session.Expired"`
 	SessionLastAccessed string `json:"Session.LastAccessed"`
 	SessionUserId  string      `json:"Session.UserId"`
@@ -26,14 +26,6 @@ type localStoragePayload struct {
 	PdfjsHistory   string      `json:"pdfjs.history"`
 }
 
-type fetchTokens struct {
-	Wildcard tokenEntry `json:"*:*:*"`
-}
-
-type tokenEntry struct {
-	AccessToken string `json:"access_token"`
-	ExpiresAt   int64  `json:"expires_at"`
-}
 
 func SaveAuth(c *gin.Context) {
 	var req authPayload

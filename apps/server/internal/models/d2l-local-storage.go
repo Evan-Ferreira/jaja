@@ -6,6 +6,15 @@ import (
 	"github.com/google/uuid"
 )
 
+type D2LFetchTokens struct {
+	Wildcard D2LTokenEntry `json:"*:*:*"`
+}
+
+type D2LTokenEntry struct {
+	AccessToken string `json:"access_token"`
+	ExpiresAt   int64  `json:"expires_at"`
+}
+
 type D2LLocalStorageSession struct {
 	ID        uuid.UUID `json:"id" gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
 	CreatedAt time.Time `json:"created_at" gorm:"type:timestamptz;default:now()"`
