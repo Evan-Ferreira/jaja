@@ -7,6 +7,7 @@ import (
 
 	"server/internal/config"
 	"server/internal/models"
+	"server/seed"
 
 	"github.com/gin-gonic/gin"
 )
@@ -42,7 +43,7 @@ func SaveAuth(c *gin.Context) {
 
 	// TODO: move away from hardcoded test user id
 	cookieSession := models.D2LCookieSession{
-		UserId:              models.TestUser.ID,
+		UserId:              seed.TestUserID,
 		Clck:                req.Cookies["_clck"],
 		Clsk:                req.Cookies["_clsk"],
 		D2LSameSiteCanaryA:  req.Cookies["d2lSameSiteCanaryA"],
@@ -60,7 +61,7 @@ func SaveAuth(c *gin.Context) {
 
 	// TODO: move away from hardcoded test user id
 	localStorageSession := models.D2LLocalStorageSession{
-		UserId:              models.TestUser.ID,
+		UserId:              seed.TestUserID,
 		D2LFetchTokens:      string(fetchTokensJSON),
 		SessionExpired:      req.LocalStorage.SessionExpired,
 		SessionLastAccessed: req.LocalStorage.SessionLastAccessed,

@@ -12,20 +12,14 @@ import (
 )
 
 type D2LClient struct {
+	orgID   int
+	vesions map[string]string
 	token   string
 	baseURL string
 	http    *http.Client
 }
 
-func NewD2LClient(token, baseURL string) *D2LClient {
-	return &D2LClient{
-		token:   token,
-		baseURL: baseURL,
-		http:    &http.Client{},
-	}
-}
-
-func NewD2LClientFromDB(userID uuid.UUID) (*D2LClient, error) {
+func NewD2LClient(userID uuid.UUID) (*D2LClient, error) {
 	var session models.D2LLocalStorageSession
 	if result := config.DB.Where("user_id = ?", userID).Last(&session); result.Error != nil {
 		return nil, fmt.Errorf("d2l: no session found for user: %w", result.Error)
@@ -40,7 +34,16 @@ func NewD2LClientFromDB(userID uuid.UUID) (*D2LClient, error) {
 		return nil, fmt.Errorf("d2l: access token is empty in stored session")
 	}
 
-	return NewD2LClient(fetchTokens.Wildcard.AccessToken, config.D2LBaseURL), nil
+	return &D2LClient{
+		orgID: 1111,
+		vesions: map[string]string{
+			"Google": "https://google.com",
+			"Go":     "https://go.dev",
+		},
+		token:   fetchTokens.Wildcard.AccessToken,
+		baseURL: config.D2LBaseURL,
+		http:    &http.Client{},
+	}, nil
 }
 
 func (c *D2LClient) get(path string, out any) error {
@@ -48,6 +51,8 @@ func (c *D2LClient) get(path string, out any) error {
 	if err != nil {
 		return fmt.Errorf("d2l: build request: %w", err)
 	}
+
+	fmt.Println(c.token)
 
 	req.Header.Set("Authorization", "Bearer "+c.token)
 
