@@ -8,11 +8,12 @@ import (
 	"server/internal/config"
 	"server/internal/models"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
 type D2LClient struct {
-	orgID   int
+	orgID   string
 	vesions map[string]string
 	token   string
 	baseURL string
@@ -35,10 +36,10 @@ func NewD2LClient(userID uuid.UUID) (*D2LClient, error) {
 	}
 
 	return &D2LClient{
-		orgID: 1111,
-		vesions: map[string]string{
-			"Google": "https://google.com",
-			"Go":     "https://go.dev",
+		orgID: "111111", // TODO: store real org ID in DB
+		vesions: map[string]string{ // TODO: store real API versions in DB or fetch from D2L
+			"le": "1.67",
+			"lp": "1.30",
 		},
 		token:   fetchTokens.Wildcard.AccessToken,
 		baseURL: config.D2LBaseURL,
@@ -51,9 +52,6 @@ func (c *D2LClient) get(path string, out any) error {
 	if err != nil {
 		return fmt.Errorf("d2l: build request: %w", err)
 	}
-
-	fmt.Println(c.token)
-
 	req.Header.Set("Authorization", "Bearer "+c.token)
 
 	res, err := c.http.Do(req)
@@ -69,20 +67,22 @@ func (c *D2LClient) get(path string, out any) error {
 	return json.NewDecoder(res.Body).Decode(out)
 }
 
-type WhoAmI struct {
-	Identifier        string `json:"Identifier"`
-	FirstName         string `json:"FirstName"`
-	LastName          string `json:"LastName"`
-	UniqueName        string `json:"UniqueName"`
-	ExternalEmail     string `json:"ExternalEmail"`
-	OrgDefinedId      string `json:"OrgDefinedId"`
-	ProfileIdentifier string `json:"ProfileIdentifier"`
-}
-
-func (c *D2LClient) GetWhoAmI() (*WhoAmI, error) {
-	var out WhoAmI
-	if err := c.get("/d2l/api/lp/1.30/users/whoami", &out); err != nil {
-		return nil, err
+func (c *D2LClient) Proxy(ctx *gin.Context) {
+	path := ctx.Param("path")
+	req, err := http.NewRequest(ctx.Request.Method, c.baseURL+path, ctx.Request.Body)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
-	return &out, nil
+	req.URL.RawQuery = ctx.Request.URL.RawQuery
+	req.Header.Set("Authorization", "Bearer "+c.token)
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		ctx.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+	defer res.Body.Close()
+
+	ctx.DataFromReader(res.StatusCode, res.ContentLength, res.Header.Get("Content-Type"), res.Body, nil)
 }
