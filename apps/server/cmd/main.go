@@ -15,6 +15,7 @@ import (
 func main() {
 	config.LoadConfig()
 	config.ConnectDB()
+	//TODO: Not ideal to run seeds on every startup, but this is a temporary measure until we have a better solution for managing test data.
 	seed.Run(config.DB)
 
 	router := gin.Default()
