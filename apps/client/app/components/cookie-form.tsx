@@ -73,10 +73,8 @@ export default function CookieForm() {
                     <FieldSet>
                         <FieldLegend>D2L Cookies and Local Storage</FieldLegend>
                         <FieldDescription>
-                            Paste your D2L cookies and local storage below. We
-                            store these securely so we can access your lectures
-                            and assignments on your behalf. This includes your
-                            session tokens and authentication credentials.
+                            Paste your D2L authentication cookies and
+                            credentials below.
                         </FieldDescription>
                     </FieldSet>
                     <FieldSet>

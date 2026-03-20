@@ -1,7 +1,6 @@
 package d2lhandlers
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
 
@@ -13,18 +12,25 @@ import (
 )
 
 type authPayload struct {
-	Cookies      map[string]string  `json:"cookies"`
+	Cookies      map[string]string   `json:"cookies"`
 	LocalStorage localStoragePayload `json:"local_storage"`
 }
 
+type fetchTokensPayload struct {
+	Wildcard struct {
+		AccessToken string `json:"access_token"`
+		ExpiresAt   int64  `json:"expires_at"`
+	} `json:"*:*:*"`
+}
+
 type localStoragePayload struct {
-	FetchTokens    models.D2LFetchTokens `json:"D2L.Fetch.Tokens"`
-	SessionExpired string      `json:"Session.Expired"`
-	SessionLastAccessed string `json:"Session.LastAccessed"`
-	SessionUserId  string      `json:"Session.UserId"`
-	XsrfHitCodeSeed string    `json:"XSRF.HitCodeSeed"`
-	XsrfToken      string      `json:"XSRF.Token"`
-	PdfjsHistory   string      `json:"pdfjs.history"`
+	FetchTokens         fetchTokensPayload `json:"D2L.Fetch.Tokens"`
+	SessionExpired      string             `json:"Session.Expired"`
+	SessionLastAccessed string             `json:"Session.LastAccessed"`
+	SessionUserId       string             `json:"Session.UserId"`
+	XsrfHitCodeSeed     string             `json:"XSRF.HitCodeSeed"`
+	XsrfToken           string             `json:"XSRF.Token"`
+	PdfjsHistory        string             `json:"pdfjs.history"`
 }
 
 
@@ -52,17 +58,11 @@ func SaveAuth(c *gin.Context) {
 		D2LSessionVal:       req.Cookies["d2lSessionVal"],
 	}
 
-	fetchTokensJSON, err := json.Marshal(req.LocalStorage.FetchTokens)
-	if err != nil {
-		log.Printf("Failed to marshal fetch tokens: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process fetch tokens"})
-		return
-	}
-
 	// TODO: move away from hardcoded test user id
 	localStorageSession := models.D2LLocalStorageSession{
 		UserId:              seed.TestUserID,
-		D2LFetchTokens:      string(fetchTokensJSON),
+		FetchAccessToken:    req.LocalStorage.FetchTokens.Wildcard.AccessToken,
+		FetchExpiresAt:      req.LocalStorage.FetchTokens.Wildcard.ExpiresAt,
 		SessionExpired:      req.LocalStorage.SessionExpired,
 		SessionLastAccessed: req.LocalStorage.SessionLastAccessed,
 		SessionUserId:       req.LocalStorage.SessionUserId,

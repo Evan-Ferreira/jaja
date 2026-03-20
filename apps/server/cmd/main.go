@@ -6,6 +6,7 @@ import (
 
 	"server/internal/config"
 	"server/internal/routes"
+	"server/seed"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -14,6 +15,7 @@ import (
 func main() {
 	config.LoadConfig()
 	config.ConnectDB()
+	seed.Run(config.DB)
 
 	router := gin.Default()
 

@@ -26,12 +26,7 @@ func NewD2LClient(userID uuid.UUID) (*D2LClient, error) {
 		return nil, fmt.Errorf("d2l: no session found for user: %w", result.Error)
 	}
 
-	var fetchTokens models.D2LFetchTokens
-	if err := json.Unmarshal([]byte(session.D2LFetchTokens), &fetchTokens); err != nil {
-		return nil, fmt.Errorf("d2l: failed to parse stored token: %w", err)
-	}
-
-	if fetchTokens.Wildcard.AccessToken == "" {
+	if session.FetchAccessToken == "" {
 		return nil, fmt.Errorf("d2l: access token is empty in stored session")
 	}
 
@@ -41,7 +36,7 @@ func NewD2LClient(userID uuid.UUID) (*D2LClient, error) {
 			"le": "1.67",
 			"lp": "1.30",
 		},
-		token:   fetchTokens.Wildcard.AccessToken,
+		token:   session.FetchAccessToken,
 		baseURL: config.D2LBaseURL,
 		http:    &http.Client{},
 	}, nil
