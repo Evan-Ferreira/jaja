@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"server/internal/config"
-	"server/internal/routes/d2l"
+	"server/internal/routes"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -23,7 +23,7 @@ func main() {
 
 	api := router.Group("/api")
 	{
-		d2l.GetD2LRouter(api)
+		routes.RegisterD2LRoutes(api)
 	}
 
 	port := os.Getenv("PORT")
