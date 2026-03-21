@@ -71,13 +71,13 @@ func SaveCredentials(c *gin.Context) {
 		PdfjsHistory:        req.LocalStorage.PdfjsHistory,
 	}
 
-	if result := config.DB.Create(&cookieSession); result.Error != nil {
+	if result := config.DBClient.Create(&cookieSession); result.Error != nil {
 		log.Printf("Failed to save cookie session to database: %v", result.Error)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save cookie session to database"})
 		return
 	}
 
-	if result := config.DB.Create(&localStorageSession); result.Error != nil {
+	if result := config.DBClient.Create(&localStorageSession); result.Error != nil {
 		log.Printf("Failed to save local storage session to database: %v", result.Error)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save local storage session to database"})
 		return
