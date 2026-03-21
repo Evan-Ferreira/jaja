@@ -2,21 +2,29 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 
-	"server/internal/config"
+	"server/internal/database"
 	"server/internal/routes"
-	"server/seed"
+	"server/internal/storage"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	config.LoadConfig()
-	config.ConnectDB()
+	database.ConnectDB()
+	storage.ConnectObjectStorage()
 	//TODO: Not ideal to run seeds on every startup, but this is a temporary measure until we have a better solution for managing test data.
-	seed.Run(config.DB)
+
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading .env file")
+	}
+
+	log.Println("Successfully loaded environment variables")
 
 	router := gin.Default()
 

@@ -1,4 +1,4 @@
-package config
+package database
 
 import (
 	"log"
@@ -8,12 +8,12 @@ import (
 	"gorm.io/gorm"
 )
 
-var DB *gorm.DB
+var DBClient *gorm.DB
 
 func ConnectDB(){
 	var err error
 	dsn := os.Getenv("DB_URL")
-	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	DBClient, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 
 	if err != nil {
 		log.Fatalf("Failed to connect to database")

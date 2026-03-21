@@ -4,17 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-JAJA (Just Automate Junk Assignments) — a web app for saving D2L (Desire2Learn) cookies and local storage to a database. Monorepo with a Next.js frontend and Go backend, backed by PostgreSQL.
+JAJA (Just Automate Junk Assignments) — a web app for saving D2L (Desire2Learn) cookies and local storage to a database. Monorepo with a Next.js frontend and Go backend, backed by PostgreSQL and MinIO (S3-compatible object storage).
 
 ## Development Commands
 
 ### Full stack (Docker)
 ```bash
-docker compose up          # Starts db, server, and client with hot reload
+docker compose up          # Starts db, minio, server, and client with hot reload
 ```
 - Frontend: http://localhost:3000
 - Server: http://localhost:8080
 - PostgreSQL: localhost:5432
+- MinIO API: http://localhost:9000
+- MinIO Console: http://localhost:9001
 
 ### Frontend only (`apps/client/`)
 ```bash
@@ -45,9 +47,10 @@ apps/
 │   ├── lib/utils.ts      # cn() helper (clsx + tailwind-merge)
 │   └── utils/string.ts   # parseStringToJSON() for tab-separated cookie/storage data
 └── server/               # Go 1.25 + Gin + GORM
-    ├── cmd/main.go       # Entry point: loads config, connects DB, sets up router
+    ├── cmd/main.go       # Entry point: loads env, connects DB + S3, sets up router
     ├── internal/
-    │   ├── config/       # LoadConfig() (.env), ConnectDB() (global DB var)
+    │   ├── database/     # ConnectDB() (global DBClient var)
+    │   ├── storage/      # ConnectObjectStorage() (global S3Client), BucketBasics S3 operations
     │   ├── models/       # GORM models: User, D2LCookieSession, D2LLocalStorageSession
     │   └── routes/d2l/   # Route handlers: POST /api/d2l/auth
     └── migrations/       # Goose SQL migration files
@@ -55,15 +58,25 @@ apps/
 
 ### Key patterns
 - **Client → Server**: Frontend POSTs to `NEXT_PUBLIC_API_URL` (default `http://localhost:8080`). Single API endpoint: `POST /api/d2l/auth` accepts `{ cookies, local_storage }`.
-- **Server → DB**: GORM with PostgreSQL via pgx driver. Global `config.DB` variable used across handlers.
+- **Server → DB**: GORM with PostgreSQL via pgx driver. Global `database.DBClient` variable initialized via `database.ConnectDB()`. Used across handlers via `database.DBClient.Create()`, `.Query()`, etc.
+- **Server → S3**: AWS SDK Go v2 with MinIO (S3-compatible). Global `storage.S3Client` initialized via `storage.ConnectObjectStorage()` with static credentials. `BucketBasics` struct provides bucket/object operations (CRUD, multipart uploads/downloads, copy, list). Connection validates via ListBuckets on startup.
 - **CORS**: Server reads `FRONTEND_URL` from env to configure allowed origins.
 - **shadcn/ui**: Uses Radix Lyra style with Phosphor Icons. Config in `components.json`.
 - **Path aliases**: `@/*` maps to project root in TypeScript.
 
 ### Environment variables
-- Root `.env`: PostgreSQL credentials, Goose config
-- `apps/server/.env`: `PORT`, `FRONTEND_URL`, `DB_URL`, Goose config
-- `apps/client/.env`: `NEXT_PUBLIC_API_URL`
+- Root `.env`: Used by docker-compose services
+  - `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` — PostgreSQL credentials
+  - `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` — MinIO S3 credentials
+- `apps/server/.env`: Used by Gin server
+  - `PORT` — Server port (default 8080)
+  - `FRONTEND_URL` — Client origin for CORS (e.g., http://localhost:3000)
+  - `DB_URL` — PostgreSQL DSN (e.g., postgres://user:pass@db:5432/jaja)
+  - `MINIO_URL` — MinIO S3 endpoint (e.g., http://minio:9000)
+  - `AWS_REGION` — S3 region (e.g., us-east-1)
+  - `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` — S3 credentials (same as root .env)
+- `apps/client/.env`: Used by Next.js
+  - `NEXT_PUBLIC_API_URL` — Server API endpoint (e.g., http://localhost:8080)
 
 ## Conventions
 
