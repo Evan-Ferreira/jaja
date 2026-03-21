@@ -34,7 +34,7 @@ export default function CookieForm() {
                             parseStringToJSON(localStorage);
 
                         const response = await fetch(
-                            `${process.env.NEXT_PUBLIC_API_URL}/api/d2l/auth`,
+                            `${process.env.NEXT_PUBLIC_API_URL}/api/d2l/credentials`,
                             {
                                 method: 'POST',
                                 headers: {

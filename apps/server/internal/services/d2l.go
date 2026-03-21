@@ -8,7 +8,6 @@ import (
 	"server/internal/config"
 	"server/internal/models"
 
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
@@ -60,24 +59,4 @@ func (c *D2LClient) get(path string, out any) error {
 	}
 
 	return json.NewDecoder(res.Body).Decode(out)
-}
-
-func (c *D2LClient) Proxy(ctx *gin.Context) {
-	path := ctx.Param("path")
-	req, err := http.NewRequest(ctx.Request.Method, c.baseURL+path, ctx.Request.Body)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	req.URL.RawQuery = ctx.Request.URL.RawQuery
-	req.Header.Set("Authorization", "Bearer "+c.token)
-
-	res, err := c.http.Do(req)
-	if err != nil {
-		ctx.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
-		return
-	}
-	defer res.Body.Close()
-
-	ctx.DataFromReader(res.StatusCode, res.ContentLength, res.Header.Get("Content-Type"), res.Body, nil)
 }
