@@ -4,20 +4,41 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"server/internal/config"
+	"server/internal/models"
+
+	"github.com/google/uuid"
 )
 
 type D2LClient struct {
+	orgID   string
+	vesions map[string]string
 	token   string
 	baseURL string
 	http    *http.Client
 }
 
-func NewD2LClient(token, baseURL string) *D2LClient {
-	return &D2LClient{
-		token:   token,
-		baseURL: baseURL,
-		http:    &http.Client{},
+func NewD2LClient(userID uuid.UUID) (*D2LClient, error) {
+	var session models.D2LLocalStorageSession
+	if result := config.DB.Where("user_id = ?", userID).Last(&session); result.Error != nil {
+		return nil, fmt.Errorf("d2l: no session found for user: %w", result.Error)
 	}
+
+	if session.FetchAccessToken == "" {
+		return nil, fmt.Errorf("d2l: access token is empty in stored session")
+	}
+
+	return &D2LClient{
+		orgID: "111111", // TODO: store real org ID in DB
+		vesions: map[string]string{ // TODO: store real API versions in DB or fetch from D2L
+			"le": "1.67",
+			"lp": "1.30",
+		},
+		token:   session.FetchAccessToken,
+		baseURL: config.D2LBaseURL,
+		http:    &http.Client{},
+	}, nil
 }
 
 func (c *D2LClient) get(path string, out any) error {
@@ -25,7 +46,6 @@ func (c *D2LClient) get(path string, out any) error {
 	if err != nil {
 		return fmt.Errorf("d2l: build request: %w", err)
 	}
-
 	req.Header.Set("Authorization", "Bearer "+c.token)
 
 	res, err := c.http.Do(req)
@@ -39,22 +59,4 @@ func (c *D2LClient) get(path string, out any) error {
 	}
 
 	return json.NewDecoder(res.Body).Decode(out)
-}
-
-type WhoAmI struct {
-	Identifier        string `json:"Identifier"`
-	FirstName         string `json:"FirstName"`
-	LastName          string `json:"LastName"`
-	UniqueName        string `json:"UniqueName"`
-	ExternalEmail     string `json:"ExternalEmail"`
-	OrgDefinedId      string `json:"OrgDefinedId"`
-	ProfileIdentifier string `json:"ProfileIdentifier"`
-}
-
-func (c *D2LClient) GetWhoAmI() (*WhoAmI, error) {
-	var out WhoAmI
-	if err := c.get("/d2l/api/lp/1.30/users/whoami", &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
 }

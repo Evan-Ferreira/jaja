@@ -34,7 +34,7 @@ export default function CookieForm() {
                             parseStringToJSON(localStorage);
 
                         const response = await fetch(
-                            `${process.env.NEXT_PUBLIC_API_URL}/api/d2l/auth`,
+                            `${process.env.NEXT_PUBLIC_API_URL}/api/d2l/credentials`,
                             {
                                 method: 'POST',
                                 headers: {
@@ -73,10 +73,8 @@ export default function CookieForm() {
                     <FieldSet>
                         <FieldLegend>D2L Cookies and Local Storage</FieldLegend>
                         <FieldDescription>
-                            We use your browser's D2L cookies and local storage
-                            to access your lectures and assignments. Your D2L
-                            info never leaves your browser and is never stored
-                            on our servers.
+                            Paste your D2L authentication cookies and
+                            credentials below.
                         </FieldDescription>
                     </FieldSet>
                     <FieldSet>

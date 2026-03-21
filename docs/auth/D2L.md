@@ -42,7 +42,7 @@ The course content layer. Everything that lives inside a specific course: assign
 
 - `/le/{ver}/{ouId}/dropbox/` — assignments
 - `/le/{ver}/{ouId}/grades/` — grades
-- `/le/{ver}/{ouId}/content/toc` — content tree
+- `/le/{ver}/{ouId}/content/toc` — table of content tree
 - `/le/{ver}/{ouId}/classlist/` — students
 - `/le/{ver}/{ouId}/news/` — announcements
 
@@ -53,7 +53,7 @@ The course content layer. Everything that lives inside a specific course: assign
 | Assignments list  | `GET /d2l/api/le/1.67/{ouId}/dropbox/folders/`                  | Bearer |
 | Single assignment | `GET /d2l/api/le/1.67/{ouId}/dropbox/folders/{id}`              | Bearer |
 | Submissions       | `GET /d2l/api/le/1.67/{ouId}/dropbox/folders/{id}/submissions/` | Bearer |
-| Activity feed     | `GET /d2l/api/hm/activity?ou={ouId}`                            | Bearer |
+| Activity feed     | `GET /d2l/api/hm/activity?ou={ouId}`        a                   | Bearer |
 | Legacy dropbox    | `GET /d2l/lms/dropbox/user/folders_history.d2l?ou={ouId}`       | Cookie |
 | Quota check       | `GET /d2l/api/le/unstable/consumption/quota`                    | Bearer |
 | Grades            | `GET /d2l/api/le/1.67/{ouId}/grades/`                           | Bearer |
@@ -127,7 +127,6 @@ The course content layer. Everything that lives inside a specific course: assign
 | Method | Endpoint                                                      | Description  |
 | ------ | ------------------------------------------------------------- | ------------ |
 | GET    | `/d2l/api/lp/1.30/users/whoami`                               | Your profile |
- a
 
 ## Course Info
 
@@ -159,6 +158,30 @@ The course content layer. Everything that lives inside a specific course: assign
 | ------ | ------------------------------------------------ | ---------------- |
 | GET    | `/d2l/api/le/1.67/{ou}/locker/user/{uid}/`       | Your locker root |
 | GET    | `/d2l/api/le/1.67/{ou}/locker/user/{uid}/{path}` | Specific folder  |
+
+---
+
+## Testing with Postman
+
+1. **Get your token** — run in the D2L browser console:
+   ```javascript
+   JSON.parse(localStorage["D2L.Fetch.Tokens"])["*:*:*"].access_token
+   ```
+
+2. **Get org/user IDs**:
+   ```javascript
+   const ctx = JSON.parse(document.documentElement.getAttribute("data-global-context"));
+   console.log(ctx.orgUnitId, ctx.userId);
+   ```
+
+3. **In Postman**, create a new request:
+   - Method: `GET`
+   - URL: `https://<your-d2l-domain>/d2l/api/le/1.67/{ou}/grades/`
+   - **Authorization** tab → Type: **Bearer Token** → paste your token
+
+4. **Send** — `200 OK` means accessible; `403` means insufficient permissions.
+
+**Tip:** Save values as Postman collection variables (`{{token}}`, `{{ou}}`, `{{uid}}`) so you can reuse them across requests.
 
 ---
 
