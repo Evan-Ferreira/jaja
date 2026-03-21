@@ -21,7 +21,7 @@ type D2LClient struct {
 
 func NewD2LClient(userID uuid.UUID) (*D2LClient, error) {
 	var session models.D2LLocalStorageSession
-	if result := config.DB.Where("user_id = ?", userID).Last(&session); result.Error != nil {
+	if result := config.DBClient.Where("user_id = ?", userID).Last(&session); result.Error != nil {
 		return nil, fmt.Errorf("d2l: no session found for user: %w", result.Error)
 	}
 
