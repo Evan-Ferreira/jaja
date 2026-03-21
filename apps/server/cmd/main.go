@@ -5,9 +5,8 @@ import (
 	"log"
 	"os"
 
-	"server/internal/database"
+	"server/internal/config"
 	"server/internal/routes"
-	"server/internal/storage"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -15,9 +14,6 @@ import (
 )
 
 func main() {
-	database.ConnectDB()
-	storage.ConnectObjectStorage()
-	//TODO: Not ideal to run seeds on every startup, but this is a temporary measure until we have a better solution for managing test data.
 
 	err := godotenv.Load()
 	if err != nil {
@@ -25,6 +21,9 @@ func main() {
 	}
 
 	log.Println("Successfully loaded environment variables")
+
+	config.ConnectDB()
+	config.ConnectObjectStorage()
 
 	router := gin.Default()
 
