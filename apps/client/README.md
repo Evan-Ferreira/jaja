@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# JAJA — Client
 
-## Getting Started
+Next.js 16 (App Router) frontend for JAJA. Built with React 19, Tailwind CSS 4, and shadcn/ui.
 
-First, run the development server:
+## Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+bun install
+bunx skills add vercel-labs/next-browser  # AI agent debugging tools (installs Chromium via Playwright)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Copy the environment file and configure:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+cp .env.example .env  # set NEXT_PUBLIC_API_URL (default: http://localhost:8080)
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Development
 
-## Learn More
+```bash
+bun dev       # Dev server on http://localhost:3000
+bun build     # Production build
+bunx eslint . # Lint
+```
 
-To learn more about Next.js, take a look at the following resources:
+Or run the full stack from the repo root with `docker compose up`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+app/              # Pages and app-level components
+  components/     # Page-specific components (e.g., cookie-form.tsx)
+components/ui/    # shadcn UI primitives (button, checkbox, field, etc.)
+lib/utils.ts      # cn() helper (clsx + tailwind-merge)
+utils/string.ts   # parseStringToJSON() for tab-separated cookie/storage data
+```
 
-## Deploy on Vercel
+## AI Agent Tools
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This project includes `next-browser` for AI agent debugging. See [AGENTS.md](./AGENTS.md) for full usage docs and commands.
