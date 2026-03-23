@@ -11,9 +11,14 @@ import (
 	"github.com/google/uuid"
 )
 
+type D2LVersions struct {
+	LE *string
+	LP *string
+}
+
 type D2LClient struct {
 	orgID    string
-	versions map[string]string
+	versions D2LVersions
 	token    string
 	baseURL  string
 	http     *http.Client
@@ -39,11 +44,8 @@ func NewD2LClient(userID uuid.UUID) (*D2LClient, error) {
 	}
 
 	return &D2LClient{
-		orgID: user.Org.ID.String(),
-		versions: map[string]string{
-			"le": user.Org.LEVersion,
-			"lp": user.Org.LPVersion,
-		},
+		orgID:   user.Org.ID.String(),
+		versions: D2LVersions{LE: user.Org.LEVersion, LP: user.Org.LPVersion},
 		token:   session.FetchAccessToken,
 		baseURL: user.Org.D2LBaseURL,
 		http:    &http.Client{},

@@ -22,8 +22,8 @@ var TestOrg = models.Org{
 	OrgName:    "ONQ",
 	D2LBaseURL: TestD2LBaseURL,
 	D2LOrgID:   "11111", // TODO: Replace with real ONQ org ID
-	LEVersion:  "1.67",  //ONQ values
-	LPVersion:  "1.30",  //ONQ values
+	LEVersion:  func() *string { s := "1.67"; return &s }(), //ONQ values
+	LPVersion:  func() *string { s := "1.30"; return &s }(), //ONQ values
 	CreatedAt:  time.Now(),
 	UpdatedAt:  time.Now(),
 }
