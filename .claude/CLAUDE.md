@@ -21,10 +21,13 @@ docker compose up          # Starts db, minio, server, and client with hot reloa
 ### Frontend only (`apps/client/`)
 ```bash
 bun install
+bunx skills add vercel-labs/next-browser  # AI agent debugging tools
 bun dev                    # Next.js dev server on :3000
 bun build                  # Production build
 bunx eslint .              # Lint
 ```
+
+After `bunx skills add vercel-labs/next-browser`, Playwright will prompt to install Chromium. Approve it. This installs `@vercel/next-browser` CLI which gives Claude Code access to React DevTools, component trees, props inspection, and Next.js dev overlay data.
 
 ### Backend only (`apps/server/`)
 The server runs via Air (hot reload) inside Docker. To run manually:
