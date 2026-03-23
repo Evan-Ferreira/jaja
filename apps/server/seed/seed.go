@@ -20,8 +20,8 @@ var TestOrg = models.Org{
 	ID:         TestOrgID,
 	OrgName:    "Test Organization",
 	D2LBaseURL: "https://test.desire2learn.com",
-	LEVersion:  "1.0",
-	LPVersion:  "1.0",
+	LEVersion:  "1.67",
+	LPVersion:  "1.30",
 	CreatedAt:  time.Now(),
 	UpdatedAt:  time.Now(),
 }
