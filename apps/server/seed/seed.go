@@ -14,9 +14,21 @@ import (
 
 // TestUserID is the hardcoded user ID used until real auth is implemented.
 var TestUserID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+var TestOrgID = uuid.MustParse("00000000-0000-0000-0000-000000000010")
+
+var TestOrg = models.Org{
+	ID:         TestOrgID,
+	OrgName:    "Test Organization",
+	D2LBaseURL: "https://test.desire2learn.com",
+	LEVersion:  "1.0",
+	LPVersion:  "1.0",
+	CreatedAt:  time.Now(),
+	UpdatedAt:  time.Now(),
+}
 
 var TestUser = models.User{
 	ID:        TestUserID,
+	OrgID:     &TestOrgID,
 	CreatedAt: time.Now(),
 	UpdatedAt: time.Now(),
 }
@@ -61,6 +73,7 @@ func insert(db *gorm.DB, label string, value any) {
 
 func Run(db *gorm.DB) {
 	localStorage := buildTestLocalStorage()
+	insert(db, "test org", &TestOrg)
 	insert(db, "test user", &TestUser)
 	insert(db, "test local storage", &localStorage)
 	insert(db, "test cookie", &TestCookie)
