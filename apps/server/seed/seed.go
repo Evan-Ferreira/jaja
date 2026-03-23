@@ -15,13 +15,15 @@ import (
 // TestUserID is the hardcoded user ID used until real auth is implemented.
 var TestUserID = uuid.MustParse("00000000-0000-0000-0000-000000000001")
 var TestOrgID = uuid.MustParse("00000000-0000-0000-0000-000000000010")
+var TestD2LBaseURL = "https://onq.queensu.ca/"
 
 var TestOrg = models.Org{
 	ID:         TestOrgID,
-	OrgName:    "Test Organization",
-	D2LBaseURL: "https://test.desire2learn.com",
-	LEVersion:  "1.67",
-	LPVersion:  "1.30",
+	OrgName:    "ONQ",
+	D2LBaseURL: TestD2LBaseURL,
+	D2LOrgID:   "11111", // TODO: Replace with real ONQ org ID
+	LEVersion:  "1.67",  //ONQ values
+	LPVersion:  "1.30",  //ONQ values
 	CreatedAt:  time.Now(),
 	UpdatedAt:  time.Now(),
 }

@@ -12,11 +12,11 @@ import (
 )
 
 type D2LClient struct {
-	orgID   string
-	vesions map[string]string
-	token   string
-	baseURL string
-	http    *http.Client
+	orgID    string
+	versions map[string]string
+	token    string
+	baseURL  string
+	http     *http.Client
 }
 
 func NewD2LClient(userID uuid.UUID) (*D2LClient, error) {
@@ -29,14 +29,23 @@ func NewD2LClient(userID uuid.UUID) (*D2LClient, error) {
 		return nil, fmt.Errorf("d2l: access token is empty in stored session")
 	}
 
+	var user models.User
+	if result := config.DBClient.Preload("Org").First(&user, "id = ?", userID); result.Error != nil {
+		return nil, fmt.Errorf("d2l: no user found: %w", result.Error)
+	}
+
+	if user.Org == nil {
+		return nil, fmt.Errorf("d2l: user has no associated org")
+	}
+
 	return &D2LClient{
-		orgID: "111111", // TODO: store real org ID in DB
-		vesions: map[string]string{ // TODO: store real API versions in DB or fetch from D2L
-			"le": "1.67",
-			"lp": "1.30",
+		orgID: user.Org.ID.String(),
+		versions: map[string]string{
+			"le": user.Org.LEVersion,
+			"lp": user.Org.LPVersion,
 		},
 		token:   session.FetchAccessToken,
-		baseURL: config.D2LBaseURL,
+		baseURL: user.Org.D2LBaseURL,
 		http:    &http.Client{},
 	}, nil
 }
