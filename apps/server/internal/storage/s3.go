@@ -379,3 +379,19 @@ func (basics BucketBasics) DeleteBucket(ctx context.Context, bucketName string) 
 	}
 	return err
 }
+
+// Check if object exists in storage bucket
+func (basics BucketBasics) ObjectExists(ctx context.Context, bucketName string, objectKey string) (bool, error) {
+    _, err := basics.S3Client.HeadObject(ctx, &s3.HeadObjectInput{
+        Bucket: aws.String(bucketName),
+        Key:    aws.String(objectKey),
+    })
+    if err != nil {
+        var notFound *types.NotFound
+        if errors.As(err, &notFound) {
+            return false, nil
+        }
+        return false, err
+    }
+    return true, nil
+}
