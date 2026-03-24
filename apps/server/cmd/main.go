@@ -31,7 +31,7 @@ func main() {
 	config.AllowOrigins = []string{os.Getenv("FRONTEND_URL")}
 	router.Use(cors.New(config))
 
-	api := router.Group("/api")
+	api := router.Group("/")
 	{
 		routes.RegisterD2LRoutes(api)
 		routes.RegisterDevRoutes(api)

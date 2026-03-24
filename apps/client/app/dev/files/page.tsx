@@ -27,7 +27,7 @@ export default function DevPage() {
                         const formData = new FormData(e.currentTarget);
 
                         const res = await fetch(
-                            `${process.env.NEXT_PUBLIC_API_URL}/api/dev/assignment-files`,
+                            `${process.env.NEXT_PUBLIC_API_URL}/dev/assignment-files`,
                             {
                                 method: 'POST',
                                 body: formData,
