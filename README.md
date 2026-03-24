@@ -57,6 +57,14 @@ Copy the example files and fill in your values:
 - **Server** `apps/server/.env` — Go server (`PORT`, `FRONTEND_URL`, `DB_URL`, `MINIO_URL`, `AWS_REGION`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`)
 - **Client** `apps/client/.env` — Next.js (`NEXT_PUBLIC_API_URL`)
 
+## API Endpoints
+
+### D2L Credentials
+- `POST /api/d2l/credentials` — Save D2L cookies and localStorage data
+
+### Dev (Development/Testing)
+- `POST /api/dev/assignment-files` — Upload assignment files (instructions/rubric) to S3 storage
+
 ## Tech Stack
 
 - **Frontend**: Next.js 16 (App Router), React 19, Tailwind CSS 4, shadcn/ui, TypeScript

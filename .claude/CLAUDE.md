@@ -45,24 +45,31 @@ Migrations live in `apps/server/migrations/` using Goose SQL format. GORM auto-m
 apps/
 ├── client/               # Next.js 16 (App Router) + React 19 + Tailwind 4 + shadcn/ui
 │   ├── app/              # Pages and app-level components
+│   │   ├── dev/files/    # Dev utilities (e.g., assignment file upload)
 │   │   └── components/   # Page-specific components (e.g., cookie-form.tsx)
-│   ├── components/ui/    # shadcn UI primitives (button, checkbox, field, etc.)
+│   ├── components/ui/    # shadcn UI primitives (button, checkbox, field, input, etc.)
 │   ├── lib/utils.ts      # cn() helper (clsx + tailwind-merge)
 │   └── utils/string.ts   # parseStringToJSON() for tab-separated cookie/storage data
 └── server/               # Go 1.25 + Gin + GORM
     ├── cmd/main.go       # Entry point: loads env, connects DB + S3, sets up router
     ├── internal/
-    │   ├── database/     # ConnectDB() (global DBClient var)
-    │   ├── storage/      # ConnectObjectStorage() (global S3Client), BucketBasics S3 operations
-    │   ├── models/       # GORM models: User, D2LCookieSession, D2LLocalStorageSession
-    │   └── routes/d2l/   # Route handlers: POST /api/d2l/auth
+    │   ├── config/       # ConnectDB(), ConnectObjectStorage() (global vars: DBClient, S3Client)
+    │   ├── handlers/
+    │   │   ├── d2l/      # D2L handlers: SaveCredentials
+    │   │   └── dev/      # Dev handlers: SaveAssignmentFiles (file uploads to S3)
+    │   ├── models/       # GORM models: User, Org, D2LCookieSession, D2LLocalStorageSession
+    │   ├── storage/      # BucketBasics S3 operations (CRUD, multipart, exists check)
+    │   ├── services/     # Business logic (d2l.go)
+    │   └── routes/       # Route registration: RegisterD2LRoutes, RegisterDevRoutes
     └── migrations/       # Goose SQL migration files
 ```
 
 ### Key patterns
-- **Client → Server**: Frontend POSTs to `NEXT_PUBLIC_API_URL` (default `http://localhost:8080`). Single API endpoint: `POST /api/d2l/auth` accepts `{ cookies, local_storage }`.
-- **Server → DB**: GORM with PostgreSQL via pgx driver. Global `database.DBClient` variable initialized via `database.ConnectDB()`. Used across handlers via `database.DBClient.Create()`, `.Query()`, etc.
-- **Server → S3**: AWS SDK Go v2 with MinIO (S3-compatible). Global `storage.S3Client` initialized via `storage.ConnectObjectStorage()` with static credentials. `BucketBasics` struct provides bucket/object operations (CRUD, multipart uploads/downloads, copy, list). Connection validates via ListBuckets on startup.
+- **Client → Server**: Frontend POSTs to `NEXT_PUBLIC_API_URL` (default `http://localhost:8080`).
+  - `POST /api/d2l/credentials` — Save D2L cookies & localStorage (form data)
+  - `POST /api/dev/assignment-files` — Upload assignment files to S3 (multipart form data)
+- **Server → DB**: GORM with PostgreSQL via pgx driver. Global `config.DBClient` variable initialized via `config.ConnectDB()`. Used across handlers via `config.DBClient.Create()`, `.Query()`, etc.
+- **Server → S3**: AWS SDK Go v2 with MinIO (S3-compatible). Global `config.S3Client` initialized via `config.ConnectObjectStorage()` with static credentials. `BucketBasics` struct provides bucket/object operations (CRUD, multipart uploads/downloads, copy, list, exists check). Connection validates via ListBuckets on startup.
 - **CORS**: Server reads `FRONTEND_URL` from env to configure allowed origins.
 - **shadcn/ui**: Uses Radix Lyra style with Phosphor Icons. Config in `components.json`.
 - **Path aliases**: `@/*` maps to project root in TypeScript.
