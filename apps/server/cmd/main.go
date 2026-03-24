@@ -34,6 +34,7 @@ func main() {
 	api := router.Group("/api")
 	{
 		routes.RegisterD2LRoutes(api)
+		routes.RegisterDevRoutes(api)
 	}
 
 	port := os.Getenv("PORT")

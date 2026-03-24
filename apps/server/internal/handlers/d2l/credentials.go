@@ -1,4 +1,4 @@
-package d2lhandlers
+package d2l
 
 import (
 	"log"

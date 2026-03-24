@@ -1,15 +1,15 @@
 package routes
 
 import (
-	d2lhandlers "server/internal/handlers/d2l"
+	"server/internal/handlers/d2l"
 
 	"github.com/gin-gonic/gin"
 )
 
 func RegisterD2LRoutes(rg *gin.RouterGroup) {
-	d2l := rg.Group("/d2l")
+	routes := rg.Group("/d2l")
 	{
-		d2l.POST("/credentials", d2lhandlers.SaveCredentials)
+		routes.POST("/credentials", d2l.SaveCredentials)
 
 	}
 }
