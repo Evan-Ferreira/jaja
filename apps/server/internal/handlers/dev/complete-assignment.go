@@ -9,7 +9,7 @@ import (
 )
 
 type completeAssignmentReq struct {
-	AssignmentName string `json:"assignment_name`
+	AssignmentName string `json:"assignment_name"`
 	AssignmentFile string `json:"assignment_file"`
 	Prompt string `json:"prompt"`
 }
