@@ -6,18 +6,20 @@ import (
 	"fmt"
 	"os"
 
+	localS3 "server/internal/storage"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	awsconfig "github.com/aws/smithy-go"
 )
 
-var S3Client *s3.Client
+var S3BasicsBucket localS3.BucketBasics
 
 func ConnectObjectStorage() {
 	ctx := context.Background()
 
-	S3Client = s3.NewFromConfig(aws.Config{
+	s3Client := s3.NewFromConfig(aws.Config{
 		Region: os.Getenv("AWS_REGION"),
 		Credentials: credentials.NewStaticCredentialsProvider(
 			os.Getenv("MINIO_ROOT_USER"),
@@ -29,8 +31,34 @@ func ConnectObjectStorage() {
 		o.UsePathStyle = true
 	})
 
+	presignEndpoint := os.Getenv("MINIO_PUBLIC_URL")
+	if presignEndpoint == "" {
+		presignEndpoint = os.Getenv("MINIO_URL")
+	}
+
+	// Use a separate client pointed at the public URL (if set) so presigned URLs
+	// are signed with a host that external services (e.g. Anthropic) can reach.
+	publicS3Client := s3.NewFromConfig(aws.Config{
+		Region: os.Getenv("AWS_REGION"),
+		Credentials: credentials.NewStaticCredentialsProvider(
+			os.Getenv("MINIO_ROOT_USER"),
+			os.Getenv("MINIO_ROOT_PASSWORD"),
+			"",
+		),
+		BaseEndpoint: aws.String(presignEndpoint),
+	}, func(o *s3.Options) {
+		o.UsePathStyle = true
+	})
+
+	s3PresignClient := s3.NewPresignClient(publicS3Client)
+
+	S3BasicsBucket = localS3.BucketBasics{
+		S3Client:      s3Client,
+		PresignClient: s3PresignClient,
+	}
+
 	count := 10
-	result, err := S3Client.ListBuckets(ctx, &s3.ListBucketsInput{})
+	result, err := s3Client.ListBuckets(ctx, &s3.ListBucketsInput{})
 
 	if err != nil {
 		var ae awsconfig.APIError

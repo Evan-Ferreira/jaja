@@ -10,5 +10,6 @@ func RegisterDevRoutes(rg *gin.RouterGroup) {
 	routes := rg.Group("/dev")
 	{
 		routes.POST("/assignment-files", dev.SaveAssignmentFiles)
+		routes.POST("/complete-assignment", dev.CompleteAssignment)
 	}
 }
