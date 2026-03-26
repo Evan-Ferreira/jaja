@@ -35,7 +35,7 @@ func CompleteAssignment(c *gin.Context){
 		return
 	}
 
-	response, err := anthropicClient.Run(c.Request.Context(), "claude-sonnet-4-6", req.Prompt, &agent.AnthropicPDF{PresignedURL: presignedURL})
+	response, err := anthropicClient.Run(c.Request.Context(), "claude-sonnet-4-6", req.Prompt, &presignedURL)
 	
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

@@ -10,10 +10,6 @@ type Agent struct {
 	client *anthropic.Client
 }
 
-type AnthropicPDF struct {
-	PresignedURL string
-}
-
 func New() (*Agent, error){
 	client, err := newClient()
 
@@ -26,10 +22,10 @@ func New() (*Agent, error){
 	}, nil
 }
 
-func (agent *Agent) Run(ctx context.Context, model anthropic.Model, prompt string, anthropicPDF *AnthropicPDF) (*anthropic.Message, error){
+func (agent *Agent) Run(ctx context.Context, model anthropic.Model, prompt string, fileUrl *string) (*anthropic.Message, error){
 	message := anthropic.NewUserMessage(
 		anthropic.NewDocumentBlock(anthropic.URLPDFSourceParam{
-			URL: anthropicPDF.PresignedURL,
+			URL: *fileUrl,
 		}),
 		anthropic.NewTextBlock(prompt),
 	)
