@@ -16,10 +16,10 @@ import (
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const (
-	courseOfferingOrgUnitTypeID = 3 // ID for course offerings in D2L's org unit type system
+	CourseOfferingOrgUnitTypeID = 3 // ID for course offerings in D2L's org unit type system
 
-	enrollmentsPath    = "/d2l/api/lp/%s/enrollments/myenrollments/?orgUnitTypeId=%d"
-	dropboxFoldersPath = "/d2l/api/le/%s/%d/dropbox/folders/"
+	EnrollmentsPath    = "/d2l/api/lp/%s/enrollments/myenrollments/?orgUnitTypeId=%d"
+	DropboxFoldersPath = "/d2l/api/le/%s/%d/dropbox/folders/"
 )
 
 // ── Client ────────────────────────────────────────────────────────────────────
@@ -94,7 +94,7 @@ func isSkippableStatus(err error) bool {
 // getEnrollments fetches all course-offering enrollments for the authenticated user.
 // D2L paginates results, so we loop until there are no more pages.
 func (c *D2LClient) getEnrollments() ([]d2lEnrollment, error) {
-	basePath := fmt.Sprintf(enrollmentsPath, c.lpVersion, courseOfferingOrgUnitTypeID)
+	basePath := fmt.Sprintf(EnrollmentsPath, c.lpVersion, CourseOfferingOrgUnitTypeID)
 
 	var all []d2lEnrollment
 	var page d2lEnrollmentsPage
@@ -117,7 +117,7 @@ func (c *D2LClient) getEnrollments() ([]d2lEnrollment, error) {
 // getAssignments fetches all visible dropbox folders for a given org unit.
 // TO DO: Will need to exapand to other assignment types in the future, but dropbox folders are the only type with due dates, so we start here.
 func (c *D2LClient) getAssignments(orgUnitID int) ([]d2lDropboxFolder, error) {
-	path := fmt.Sprintf(dropboxFoldersPath, c.leVersion, orgUnitID)
+	path := fmt.Sprintf(DropboxFoldersPath, c.leVersion, orgUnitID)
 	var folders []d2lDropboxFolder
 	err := c.get(path, &folders)
 	if err != nil {

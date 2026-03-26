@@ -1,33 +1,18 @@
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { formatDueDate } from '@/utils/string';
-
-type Assignment = {
-    id: number;
-    name: string;
-    instructions: string;
-    due_date: string | null;
-    score_out_of: number | null;
-};
-
-type Course = {
-    id: number;
-    name: string;
-    code: string;
-    assignments: Assignment[];
-};
+import { Course } from './types';
 
 async function getCourses(): Promise<Course[]> {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/d2l/courses`, {
-        cache: 'no-store',
-    });
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/d2l/courses`);
 
     if (!res.ok) {
-        console.error('[courses] error response body:', await res.text());
-        return [];
+        const body = await res.text();
+        console.error('[courses] error response body:', body);
+        throw new Error(`Failed to load courses: ${res.status}`);
     }
 
-    return res.json();
+    return await res.json();
 }
 
 //TODO: This page will need to change just a POC to test fetching courses and assignments. We can add more details and styling later.
