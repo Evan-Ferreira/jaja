@@ -15,13 +15,13 @@ cp .env.example .env
 docker compose up
 ```
 
-| Service        | URL                        |
-| -------------- | -------------------------- |
-| Frontend       | http://localhost:3000       |
-| Server API     | http://localhost:8080       |
-| PostgreSQL     | localhost:5432              |
-| MinIO API      | http://localhost:9000       |
-| MinIO Console  | http://localhost:9001       |
+| Service       | URL                   |
+| ------------- | --------------------- |
+| Frontend      | http://localhost:3000 |
+| Server API    | http://localhost:8080 |
+| PostgreSQL    | localhost:5432        |
+| MinIO API     | http://localhost:9000 |
+| MinIO Console | http://localhost:9001 |
 
 ## Setup
 
@@ -60,10 +60,12 @@ Copy the example files and fill in your values:
 ## API Endpoints
 
 ### D2L Credentials
-- `POST /api/d2l/credentials` — Save D2L cookies and localStorage data
+
+- `POST /d2l/credentials` — Save D2L cookies and localStorage data
 
 ### Dev (Development/Testing)
-- `POST /api/dev/assignment-files` — Upload assignment files (instructions/rubric) to S3 storage
+
+- `POST /dev/assignment-files` — Upload assignment files (instructions/rubric) to S3 storage
 
 ## Tech Stack
 

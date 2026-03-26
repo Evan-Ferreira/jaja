@@ -22,10 +22,9 @@ import (
 // It contains S3Client, an Amazon S3 service client that is used to perform bucket
 // and object actions.
 type BucketBasics struct {
-	S3Client *s3.Client
+	S3Client      *s3.Client
+	PresignClient *s3.PresignClient
 }
-
-
 
 // ListBuckets lists the buckets in the current account.
 func (basics BucketBasics) ListBuckets(ctx context.Context) ([]types.Bucket, error) {
@@ -394,4 +393,25 @@ func (basics BucketBasics) ObjectExists(ctx context.Context, bucketName string, 
         return false, err
     }
     return true, nil
+}
+
+const DEFAULT_PRESIGNED_URL_EXPIRY_SECONDS = 900 // 15 minutes 
+
+func (basics BucketBasics) GeneratePresignedUrl(ctx context.Context, bucketName string, fileKey string, expireSeconds int) (string, error) {
+	if expireSeconds == 0 {
+		expireSeconds = DEFAULT_PRESIGNED_URL_EXPIRY_SECONDS 
+	}
+
+	presigned, err := basics.PresignClient.PresignGetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(bucketName),
+		Key: aws.String(fileKey),
+	}, func(opts *s3.PresignOptions){
+		opts.Expires = time.Duration(expireSeconds) * time.Second
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("Error presigning object: %w", err)
+	}
+
+	return presigned.URL, nil
 }
