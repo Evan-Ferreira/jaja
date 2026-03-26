@@ -395,9 +395,11 @@ func (basics BucketBasics) ObjectExists(ctx context.Context, bucketName string, 
     return true, nil
 }
 
+const DEFAULT_PRESIGNED_URL_EXPIRY_SECONDS = 900 // 15 minutes 
+
 func (basics BucketBasics) GeneratePresignedUrl(ctx context.Context, bucketName string, fileKey string, expireSeconds int) (string, error) {
 	if expireSeconds == 0 {
-		expireSeconds = 900 // 15 minutes
+		expireSeconds = DEFAULT_PRESIGNED_URL_EXPIRY_SECONDS 
 	}
 
 	presigned, err := basics.PresignClient.PresignGetObject(ctx, &s3.GetObjectInput{
