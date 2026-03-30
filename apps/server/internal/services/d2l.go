@@ -138,6 +138,7 @@ func (c *D2LClient) LoadCoursesAndAssignments() ([]Course, error) {
 	}
 
 	courses := make([]Course, len(enrollments))
+	errs := make(chan error, len(enrollments))
 
 	var wg sync.WaitGroup
 	for i, e := range enrollments {
@@ -146,8 +147,11 @@ func (c *D2LClient) LoadCoursesAndAssignments() ([]Course, error) {
 		//SUII MULTITHREADING
 		go func(idx int, enrollment d2lEnrollment) {
 			defer wg.Done()
-
-			folders, _ := c.getAssignments(enrollment.OrgUnit.ID)
+			folders, err := c.getAssignments(enrollment.OrgUnit.ID)
+			if err != nil {
+				errs <- fmt.Errorf("d2l: load assignments for org %d: %w", enrollment.OrgUnit.ID, err)
+				return
+			}
 
 			assignments := make([]Assignment, 0, len(folders))
 			for _, f := range folders {
@@ -172,6 +176,11 @@ func (c *D2LClient) LoadCoursesAndAssignments() ([]Course, error) {
 		}(i, e)
 	}
 	wg.Wait()
+	close(errs)
+
+	if err := <-errs; err != nil {
+		return nil, err
+	}
 
 	return courses, nil
 }
