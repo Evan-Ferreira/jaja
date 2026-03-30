@@ -7,3 +7,12 @@ export function parseStringToJSON(raw: string) {
         return acc;
     }, entries);
 }
+
+export function formatDueDate(iso: string | null): string {
+    if (!iso) return 'No due date';
+    return new Date(iso).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+    });
+}
