@@ -47,13 +47,17 @@ type d2lRichText struct {
 	HTML string `json:"Html"`
 }
 
+type d2lDropboxAssessment struct {
+	ScoreDenominator *float64 `json:"ScoreDenominator"`
+}
+
 type d2lDropboxFolder struct {
-	ID           int         `json:"Id"`
-	Name         string      `json:"Name"`
-	Instructions d2lRichText `json:"CustomInstructions"`
-	DueDate      *string     `json:"DueDate"` // ISO 8601 or null
-	ScoreOutOf   *float64    `json:"ScoreOutOf"`
-	IsHidden     bool        `json:"IsHidden"`
+	ID           int                    `json:"Id"`
+	Name         string                 `json:"Name"`
+	Instructions d2lRichText            `json:"CustomInstructions"`
+	DueDate      *string                `json:"DueDate"` // ISO 8601 or null
+	Assessment   d2lDropboxAssessment   `json:"Assessment"`
+	IsHidden     bool                   `json:"IsHidden"`
 }
 
 // ── Public output types ───────────────────────────────────────────────────────
@@ -63,7 +67,7 @@ type Assignment struct {
 	Name         string   `json:"name"`
 	Instructions string   `json:"instructions"`
 	DueDate      *string  `json:"due_date"`
-	ScoreOutOf   *float64 `json:"score_out_of"`
+	ScoreOutOf   *float64 `json:"score_out_of"` // sourced from Assessment.ScoreDenominator
 }
 
 type Course struct {

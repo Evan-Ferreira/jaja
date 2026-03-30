@@ -163,7 +163,7 @@ func (c *D2LClient) LoadCoursesAndAssignments() ([]Course, error) {
 					Name:         f.Name,
 					Instructions: f.Instructions.Text,
 					DueDate:      f.DueDate,
-					ScoreOutOf:   f.ScoreOutOf,
+					ScoreOutOf:   f.Assessment.ScoreDenominator,
 				})
 			}
 
