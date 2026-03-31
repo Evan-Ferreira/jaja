@@ -30,8 +30,13 @@ type d2lOrgUnit struct {
 	Code string         `json:"Code"`
 }
 
+type d2lEnrollmentAccess struct {
+	CanAccess bool `json:"CanAccess"`
+}
+
 type d2lEnrollment struct {
-	OrgUnit d2lOrgUnit `json:"OrgUnit"`
+	OrgUnit d2lOrgUnit           `json:"OrgUnit"`
+	Access  d2lEnrollmentAccess  `json:"Access"`
 }
 
 type d2lEnrollmentsPage struct {

@@ -91,9 +91,9 @@ func isSkippableStatus(err error) bool {
 	return errors.As(err, &e) && (e.code == http.StatusForbidden || e.code == http.StatusNotFound)
 }
 
-// getEnrollments fetches all course-offering enrollments for the authenticated user.
-// D2L paginates results, so we loop until there are no more pages.
-func (c *D2LClient) getEnrollments() ([]d2lEnrollment, error) {
+// getActiveEnrollments fetches all active course-offering enrollments for the authenticated user.
+// D2L paginates results, so we loop until there are no more pages. Closed enrollments are filtered out.
+func (c *D2LClient) getActiveEnrollments() ([]d2lEnrollment, error) {
 	basePath := fmt.Sprintf(EnrollmentsPath, c.lpVersion, CourseOfferingOrgUnitTypeID)
 
 	var all []d2lEnrollment
@@ -102,13 +102,22 @@ func (c *D2LClient) getEnrollments() ([]d2lEnrollment, error) {
 	if err := c.get(basePath, &page); err != nil {
 		return nil, err
 	}
-	all = append(all, page.Items...)
+
+	for _, e := range page.Items {
+		if e.Access.CanAccess {
+			all = append(all, e)
+		}
+	}
 
 	for page.PagingInfo.HasMoreItems {
 		if err := c.get(basePath+"&bookmark="+page.PagingInfo.Bookmark, &page); err != nil {
 			return nil, err
 		}
-		all = append(all, page.Items...)
+		for _, e := range page.Items {
+			if e.Access.CanAccess {
+				all = append(all, e)
+			}
+		}
 	}
 
 	return all, nil
@@ -132,7 +141,7 @@ func (c *D2LClient) getAssignments(orgUnitID int) ([]d2lDropboxFolder, error) {
 // LoadCoursesAndAssignments returns all enrolled courses with their assignments,
 // ready to send to the frontend. Assignment fetches run concurrently.
 func (c *D2LClient) LoadCoursesAndAssignments() ([]Course, error) {
-	enrollments, err := c.getEnrollments()
+	enrollments, err := c.getActiveEnrollments()
 	if err != nil {
 		return nil, fmt.Errorf("d2l: load enrollments: %w", err)
 	}
