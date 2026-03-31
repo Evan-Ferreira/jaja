@@ -56,13 +56,19 @@ type d2lDropboxAssessment struct {
 	ScoreDenominator *float64 `json:"ScoreDenominator"`
 }
 
+type d2lAttachment struct {
+	FileID   int    `json:"FileId"`
+	FileName string `json:"FileName"`
+}
+
 type d2lDropboxFolder struct {
-	ID           int                    `json:"Id"`
-	Name         string                 `json:"Name"`
-	Instructions d2lRichText            `json:"CustomInstructions"`
-	DueDate      *string                `json:"DueDate"` // ISO 8601 or null
-	Assessment   d2lDropboxAssessment   `json:"Assessment"`
-	IsHidden     bool                   `json:"IsHidden"`
+	ID           int                  `json:"Id"`
+	Name         string               `json:"Name"`
+	Instructions d2lRichText          `json:"CustomInstructions"`
+	DueDate      *string              `json:"DueDate"` // ISO 8601 or null
+	Assessment   d2lDropboxAssessment `json:"Assessment"`
+	IsHidden     bool                 `json:"IsHidden"`
+	Attachments  []d2lAttachment      `json:"Attachments"`
 }
 
 // ── Public output types ───────────────────────────────────────────────────────

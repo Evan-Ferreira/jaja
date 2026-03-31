@@ -1,9 +1,12 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
 	"sync"
 
@@ -18,8 +21,9 @@ import (
 const (
 	CourseOfferingOrgUnitTypeID = 3 // ID for course offerings in D2L's org unit type system
 
-	EnrollmentsPath    = "/d2l/api/lp/%s/enrollments/myenrollments/?orgUnitTypeId=%d"
-	DropboxFoldersPath = "/d2l/api/le/%s/%d/dropbox/folders/"
+	EnrollmentsPath       = "/d2l/api/lp/%s/enrollments/myenrollments/?orgUnitTypeId=%d"
+	DropboxFoldersPath    = "/d2l/api/le/%s/%d/dropbox/folders/"
+	DropboxAttachmentPath = "/d2l/api/le/%s/%d/dropbox/folders/%d/attachments/%d"
 )
 
 // ── Client ────────────────────────────────────────────────────────────────────
@@ -61,24 +65,38 @@ func NewD2LClient(userID uuid.UUID) (*D2LClient, error) {
 	}, nil
 }
 
-func (c *D2LClient) get(path string, out any) error {
+// getBytes fetches path and returns the raw response body.
+func (c *D2LClient) getBytes(path string) ([]byte, error) {
 	req, err := http.NewRequest(http.MethodGet, c.baseURL+path, nil)
 	if err != nil {
-		return fmt.Errorf("d2l: build request: %w", err)
+		return nil, fmt.Errorf("d2l: build request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+c.token)
 
 	res, err := c.http.Do(req)
 	if err != nil {
-		return fmt.Errorf("d2l: request failed: %w", err)
+		return nil, fmt.Errorf("d2l: request failed: %w", err)
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return &d2lStatusError{code: res.StatusCode, path: path}
+		return nil, &d2lStatusError{code: res.StatusCode, path: path}
 	}
 
-	if err := json.NewDecoder(res.Body).Decode(out); err != nil {
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("d2l: read body: %w", err)
+	}
+	return body, nil
+}
+
+// get fetches path and JSON-decodes the response into out.
+func (c *D2LClient) get(path string, out any) error {
+	body, err := c.getBytes(path)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(body, out); err != nil {
 		return fmt.Errorf("d2l: decode response: %w", err)
 	}
 	return nil
@@ -123,18 +141,53 @@ func (c *D2LClient) getActiveEnrollments() ([]d2lEnrollment, error) {
 	return all, nil
 }
 
-// getAssignments fetches all visible dropbox folders for a given org unit.
+// getAssignments fetches all visible dropbox folders for a given org unit and uploads
+// any file attachments to MinIO S3 under assignments/{orgUnitID}/{folderID}/{fileName}.
 // TO DO: Will need to exapand to other assignment types in the future, but dropbox folders are the only type with due dates, so we start here.
 func (c *D2LClient) getAssignments(orgUnitID int) ([]d2lDropboxFolder, error) {
 	path := fmt.Sprintf(DropboxFoldersPath, c.leVersion, orgUnitID)
 	var folders []d2lDropboxFolder
-	err := c.get(path, &folders)
-	if err != nil {
+	if err := c.get(path, &folders); err != nil {
 		if isSkippableStatus(err) {
 			return nil, nil
 		}
 		return nil, err
 	}
+
+	ctx := context.Background()
+	var wg sync.WaitGroup
+	for _, f := range folders {
+		for _, a := range f.Attachments {
+			wg.Add(1)
+			go func(folderID int, attachment d2lAttachment) {
+				defer wg.Done()
+				key := fmt.Sprintf("assignments/%d/%d/%s", orgUnitID, folderID, attachment.FileName)
+
+				//TODO: Change test-buckert to real bucket name and handle bucket creation if it doesn't exist
+				exists, err := config.S3BasicsBucket.ObjectExists(ctx, "test-bucket", key)
+				if err != nil {
+					log.Printf("d2l: check attachment %q in S3: %v", key, err)
+					return
+				}
+				if exists {
+					return
+				}
+
+				attachPath := fmt.Sprintf(DropboxAttachmentPath, c.leVersion, orgUnitID, folderID, attachment.FileID)
+				data, err := c.getBytes(attachPath)
+				if err != nil {
+					log.Printf("d2l: download attachment %q (folder %d, org %d): %v", attachment.FileName, folderID, orgUnitID, err)
+					return
+				}
+
+				if err := config.S3BasicsBucket.UploadLargeObject(ctx, "test-bucket", key, data); err != nil {
+					log.Printf("d2l: upload attachment %q to S3: %v", key, err)
+				}
+			}(f.ID, a)
+		}
+	}
+	wg.Wait()
+
 	return folders, nil
 }
 
