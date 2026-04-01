@@ -12,6 +12,7 @@ import (
 
 	"server/internal/config"
 	"server/internal/models"
+	"server/internal/util"
 
 	"github.com/google/uuid"
 )
@@ -191,58 +192,164 @@ func (c *D2LClient) getAssignments(orgUnitID int) ([]d2lDropboxFolder, error) {
 	return folders, nil
 }
 
-// LoadCoursesAndAssignments returns all enrolled courses with their assignments,
-// ready to send to the frontend. Assignment fetches run concurrently.
-func (c *D2LClient) LoadCoursesAndAssignments() ([]Course, error) {
-	enrollments, err := c.getActiveEnrollments()
+// updateCourse upserts a single course into the DB and returns the persisted record.
+func (c *D2LClient) updateCourse(orgUUID uuid.UUID, unit d2lOrgUnit) (models.Course, error) {
+	var course models.Course
+	result := config.DBClient.Where("d2l_id = ? AND org_id = ?", unit.ID, orgUUID).First(&course)
+	if result.Error != nil {
+		course = models.Course{
+			OrgID: orgUUID,
+			D2LID: unit.ID,
+			Name:  unit.Name,
+			Code:  unit.Code,
+		}
+		if err := config.DBClient.Create(&course).Error; err != nil {
+			return course, fmt.Errorf("d2l: create course %d: %w", unit.ID, err)
+		}
+	} else {
+		course.Name = unit.Name
+		course.Code = unit.Code
+		if err := config.DBClient.Save(&course).Error; err != nil {
+			return course, fmt.Errorf("d2l: update course %d: %w", unit.ID, err)
+		}
+	}
+	return course, nil
+}
+
+// updateAssignments fetches dropbox folders for orgUnitID from D2L and upserts them as assignments under course.
+func (c *D2LClient) updateAssignments(course models.Course, orgUnitID int) error {
+	folders, err := c.getAssignments(orgUnitID)
 	if err != nil {
-		return nil, fmt.Errorf("d2l: load enrollments: %w", err)
+		return fmt.Errorf("d2l: load assignments for org %d: %w", orgUnitID, err)
 	}
 
-	courses := make([]Course, len(enrollments))
+	var wg sync.WaitGroup
+	for _, f := range folders {
+		wg.Add(1)
+		go func(folder d2lDropboxFolder) {
+			defer wg.Done()
+			dueDate := util.ParseISODate(folder.DueDate)
+
+			var assignment models.Assignment
+			result := config.DBClient.Where("d2l_id = ? AND course_id = ?", folder.ID, course.ID).First(&assignment)
+			if result.Error != nil {
+				assignment = models.Assignment{
+					CourseID:         course.ID,
+					D2LID:            folder.ID,
+					Name:             folder.Name,
+					InstructionsText: &folder.Instructions.Text,
+					DueDate:          dueDate,
+					ScoreOutOf:       folder.Assessment.ScoreDenominator,
+					IsHidden:         folder.IsHidden,
+				}
+				if err := config.DBClient.Create(&assignment).Error; err != nil {
+					log.Printf("d2l: create assignment %d (course %d): %v", folder.ID, course.ID, err)
+				}
+			} else {
+				assignment.Name = folder.Name
+				assignment.InstructionsText = &folder.Instructions.Text
+				assignment.DueDate = dueDate
+				assignment.ScoreOutOf = folder.Assessment.ScoreDenominator
+				assignment.IsHidden = folder.IsHidden
+				if err := config.DBClient.Save(&assignment).Error; err != nil {
+					log.Printf("d2l: update assignment %d (course %d): %v", folder.ID, course.ID, err)
+				}
+			}
+		}(f)
+	}
+	wg.Wait()
+	return nil
+}
+
+// SyncD2L fetches all enrolled courses and their assignments from D2L and upserts them into the DB.
+// Course and assignment fetches run concurrently.
+func (c *D2LClient) SyncD2L() error {
+	enrollments, err := c.getActiveEnrollments()
+	if err != nil {
+		return fmt.Errorf("d2l: load enrollments: %w", err)
+	}
+
+	orgUUID, err := uuid.Parse(c.orgID)
+	if err != nil {
+		return fmt.Errorf("d2l: parse org ID: %w", err)
+	}
+
 	errs := make(chan error, len(enrollments))
 
 	var wg sync.WaitGroup
-	for i, e := range enrollments {
+	for _, e := range enrollments {
 		wg.Add(1)
 
 		//SUII MULTITHREADING
-		go func(idx int, enrollment d2lEnrollment) {
+		go func(enrollment d2lEnrollment) {
 			defer wg.Done()
-			folders, err := c.getAssignments(enrollment.OrgUnit.ID)
+
+			course, err := c.updateCourse(orgUUID, enrollment.OrgUnit)
 			if err != nil {
-				errs <- fmt.Errorf("d2l: load assignments for org %d: %w", enrollment.OrgUnit.ID, err)
+				errs <- err
 				return
 			}
 
-			assignments := make([]Assignment, 0, len(folders))
-			for _, f := range folders {
-				if f.IsHidden {
-					continue
-				}
-				assignments = append(assignments, Assignment{
-					ID:           f.ID,
-					Name:         f.Name,
-					Instructions: f.Instructions.Text,
-					DueDate:      f.DueDate,
-					ScoreOutOf:   f.Assessment.ScoreDenominator,
-				})
+			if err := c.updateAssignments(course, enrollment.OrgUnit.ID); err != nil {
+				errs <- err
 			}
-
-			courses[idx] = Course{
-				ID:          enrollment.OrgUnit.ID,
-				Name:        enrollment.OrgUnit.Name,
-				Code:        enrollment.OrgUnit.Code,
-				Assignments: assignments,
-			}
-		}(i, e)
+		}(e)
 	}
 	wg.Wait()
 	close(errs)
 
 	if err := <-errs; err != nil {
-		return nil, err
+		return err
+	}
+
+	return nil
+}
+
+func (c *D2LClient) LoadCoursesAndAssignments() ([]Course, error) {
+	orgUUID, err := uuid.Parse(c.orgID)
+	if err != nil {
+		return nil, fmt.Errorf("d2l: parse org ID: %w", err)
+	}
+
+	var dbCourses []models.Course
+	if err := config.DBClient.Where("org_id = ?", orgUUID).Find(&dbCourses).Error; err != nil {
+		return nil, fmt.Errorf("d2l: load courses from db: %w", err)
+	}
+	if len(dbCourses) == 0 {
+		return nil, nil
+	}
+
+	courseIDs := make([]uuid.UUID, len(dbCourses))
+	for i, c := range dbCourses {
+		courseIDs[i] = c.ID
+	}
+
+	var dbAssignments []models.Assignment
+	if err := config.DBClient.Where("course_id IN ? AND is_hidden = false", courseIDs).Find(&dbAssignments).Error; err != nil {
+		return nil, fmt.Errorf("d2l: load assignments from db: %w", err)
+	}
+
+	assignmentsByCourseID := make(map[uuid.UUID][]Assignment, len(dbCourses))
+	for _, a := range dbAssignments {
+		assignmentsByCourseID[a.CourseID] = append(assignmentsByCourseID[a.CourseID], Assignment{
+			ID:           a.D2LID,
+			Name:         a.Name,
+			Instructions: a.InstructionsText,
+			DueDate:      a.DueDate,
+			ScoreOutOf:   a.ScoreOutOf,
+		})
+	}
+
+	courses := make([]Course, len(dbCourses))
+	for i, dbCourse := range dbCourses {
+		courses[i] = Course{
+			ID:          dbCourse.D2LID,
+			Name:        dbCourse.Name,
+			Code:        dbCourse.Code,
+			Assignments: assignmentsByCourseID[dbCourse.ID],
+		}
 	}
 
 	return courses, nil
 }
+

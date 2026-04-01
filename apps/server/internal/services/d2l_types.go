@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"net/http"
+	"time"
 )
 
 // ── Errors ────────────────────────────────────────────────────────────────────
@@ -74,11 +75,11 @@ type d2lDropboxFolder struct {
 // ── Public output types ───────────────────────────────────────────────────────
 
 type Assignment struct {
-	ID           int      `json:"id"`
-	Name         string   `json:"name"`
-	Instructions string   `json:"instructions"`
-	DueDate      *string  `json:"due_date"`
-	ScoreOutOf   *float64 `json:"score_out_of"` // sourced from Assessment.ScoreDenominator
+	ID           int        `json:"id"`
+	Name         string     `json:"name"`
+	Instructions *string    `json:"instructions"`
+	DueDate      *time.Time `json:"due_date"`
+	ScoreOutOf   *float64   `json:"score_out_of"`
 }
 
 type Course struct {
