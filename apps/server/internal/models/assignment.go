@@ -8,9 +8,9 @@ import (
 
 type Assignment struct {
 	ID               uuid.UUID  `json:"id" gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
-	CourseID         uuid.UUID  `json:"course_id" gorm:"type:uuid;not null"`
+	CourseID         uuid.UUID  `json:"course_id" gorm:"type:uuid;uniqueIndex:idx_assignments_d2l_id_course_id;not null"`
 	Course           *Course    `json:"course,omitempty" gorm:"foreignKey:CourseID"`
-	D2LID            int        `json:"d2l_id" gorm:"not null"`
+	D2LID            int        `json:"d2l_id" gorm:"column:d2l_id;uniqueIndex:idx_assignments_d2l_id_course_id;not null"`
 	Name             string     `json:"name" gorm:"not null"`
 	Description      *string    `json:"description"`
 	InstructionsText *string    `json:"instructions_text"`

@@ -1,7 +1,7 @@
 export type Assignment = {
     id: number;
     name: string;
-    instructions: string;
+    instructions: string | null;
     due_date: string | null;
     score_out_of: number | null;
 };

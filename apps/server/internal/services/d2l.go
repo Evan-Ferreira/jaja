@@ -142,9 +142,8 @@ func (c *D2LClient) getActiveEnrollments() ([]d2lEnrollment, error) {
 	return all, nil
 }
 
-// getAssignments fetches all visible dropbox folders for a given org unit and uploads
-// any file attachments to MinIO S3 under assignments/{orgUnitID}/{folderID}/{fileName}.
-// TO DO: Will need to exapand to other assignment types in the future, but dropbox folders are the only type with due dates, so we start here.
+// getAssignments fetches all dropbox folders for a given org unit.
+// TO DO: Will need to expand to other assignment types in the future, but dropbox folders are the only type with due dates, so we start here.
 func (c *D2LClient) getAssignments(orgUnitID int) ([]d2lDropboxFolder, error) {
 	path := fmt.Sprintf(DropboxFoldersPath, c.leVersion, orgUnitID)
 	var folders []d2lDropboxFolder
@@ -154,42 +153,32 @@ func (c *D2LClient) getAssignments(orgUnitID int) ([]d2lDropboxFolder, error) {
 		}
 		return nil, err
 	}
-
-	ctx := context.Background()
-	var wg sync.WaitGroup
-	for _, f := range folders {
-		for _, a := range f.Attachments {
-			wg.Add(1)
-			go func(folderID int, attachment d2lAttachment) {
-				defer wg.Done()
-				key := fmt.Sprintf("assignments/%d/%d/%s", orgUnitID, folderID, attachment.FileName)
-
-				//TODO: Change test-buckert to real bucket name and handle bucket creation if it doesn't exist
-				exists, err := config.S3BasicsBucket.ObjectExists(ctx, "test-bucket", key)
-				if err != nil {
-					log.Printf("d2l: check attachment %q in S3: %v", key, err)
-					return
-				}
-				if exists {
-					return
-				}
-
-				attachPath := fmt.Sprintf(DropboxAttachmentPath, c.leVersion, orgUnitID, folderID, attachment.FileID)
-				data, err := c.getBytes(attachPath)
-				if err != nil {
-					log.Printf("d2l: download attachment %q (folder %d, org %d): %v", attachment.FileName, folderID, orgUnitID, err)
-					return
-				}
-
-				if err := config.S3BasicsBucket.UploadLargeObject(ctx, "test-bucket", key, data); err != nil {
-					log.Printf("d2l: upload attachment %q to S3: %v", key, err)
-				}
-			}(f.ID, a)
-		}
-	}
-	wg.Wait()
-
 	return folders, nil
+}
+
+func (c *D2LClient) saveAttachment(ctx context.Context, orgUnitID int, folderID int, attachment d2lAttachment) {
+	key := fmt.Sprintf("assignments/%d/%d/%s", orgUnitID, folderID, attachment.FileName)
+
+	//TODO: Change test-bucket to real bucket name and handle bucket creation if it doesn't exist
+	exists, err := config.S3BasicsBucket.ObjectExists(ctx, "test-bucket", key)
+	if err != nil {
+		log.Printf("d2l: check attachment %q in S3: %v", key, err)
+		return
+	}
+	if exists {
+		return
+	}
+
+	attachPath := fmt.Sprintf(DropboxAttachmentPath, c.leVersion, orgUnitID, folderID, attachment.FileID)
+	data, err := c.getBytes(attachPath)
+	if err != nil {
+		log.Printf("d2l: download attachment %q (folder %d, org %d): %v", attachment.FileName, folderID, orgUnitID, err)
+		return
+	}
+
+	if err := config.S3BasicsBucket.UploadLargeObject(ctx, "test-bucket", key, data); err != nil {
+		log.Printf("d2l: upload attachment %q to S3: %v", key, err)
+	}
 }
 
 // updateCourse upserts a single course into the DB and returns the persisted record.
@@ -223,11 +212,15 @@ func (c *D2LClient) updateAssignments(course models.Course, orgUnitID int) error
 		return fmt.Errorf("d2l: load assignments for org %d: %w", orgUnitID, err)
 	}
 
+	ctx := context.Background()
 	var wg sync.WaitGroup
 	for _, f := range folders {
 		wg.Add(1)
 		go func(folder d2lDropboxFolder) {
 			defer wg.Done()
+			for _, a := range folder.Attachments {
+				c.saveAttachment(ctx, orgUnitID, folder.ID, a)
+			}
 			dueDate := util.ParseISODate(folder.DueDate)
 
 			var assignment models.Assignment
@@ -316,7 +309,7 @@ func (c *D2LClient) LoadCoursesAndAssignments() ([]Course, error) {
 		return nil, fmt.Errorf("d2l: load courses from db: %w", err)
 	}
 	if len(dbCourses) == 0 {
-		return nil, nil
+		return []Course{}, nil
 	}
 
 	courseIDs := make([]uuid.UUID, len(dbCourses))
@@ -342,14 +335,17 @@ func (c *D2LClient) LoadCoursesAndAssignments() ([]Course, error) {
 
 	courses := make([]Course, len(dbCourses))
 	for i, dbCourse := range dbCourses {
+		assignments := assignmentsByCourseID[dbCourse.ID]
+		if assignments == nil {
+			assignments = []Assignment{}
+		}
 		courses[i] = Course{
 			ID:          dbCourse.D2LID,
 			Name:        dbCourse.Name,
 			Code:        dbCourse.Code,
-			Assignments: assignmentsByCourseID[dbCourse.ID],
+			Assignments: assignments,
 		}
 	}
 
 	return courses, nil
 }
-
