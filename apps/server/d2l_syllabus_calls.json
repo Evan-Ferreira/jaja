@@ -1,0 +1,663 @@
+{
+    "timestamp": "2026-04-03T03:53:45Z",
+    "step": "fetch_toc",
+    "path": "/d2l/api/le/1.67/997744/content/toc"
+}
+{
+    "timestamp": "2026-04-03T03:54:19Z",
+    "step": "fetch_toc",
+    "path": "/d2l/api/le/1.67/997744/content/toc"
+}
+{
+    "path": "/d2l/api/le/1.67/997744/content/toc",
+    "result": {
+        "Modules": [
+            {
+                "ModuleId": 5901381,
+                "Title": "Syllabus and Course Details",
+                "Modules": [
+                    {
+                        "ModuleId": 5901387,
+                        "Title": "University and Course Policies",
+                        "Modules": [],
+                        "Topics": [
+                            {
+                                "TopicId": 5901413,
+                                "Title": "Academic Integrity",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 5901414,
+                                "Title": "Copyright",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 5901425,
+                                "Title": "Accommodation for Disabilities",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 5901415,
+                                "Title": "About Turnitin at Queen's University",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 6001091,
+                                "Title": "Academic Considerations",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            }
+                        ]
+                    }
+                ],
+                "Topics": [
+                    {
+                        "TopicId": 5901402,
+                        "Title": "Syllabus",
+                        "TopicType": 0,
+                        "IsHidden": false
+                    },
+                    {
+                        "TopicId": 5901401,
+                        "Title": "Credits",
+                        "TopicType": 0,
+                        "IsHidden": false
+                    }
+                ]
+            },
+            {
+                "ModuleId": 5901384,
+                "Title": "Assessments",
+                "Modules": [
+                    {
+                        "ModuleId": 5901403,
+                        "Title": "Assignments",
+                        "Modules": [],
+                        "Topics": [
+                            {
+                                "TopicId": 5901430,
+                                "Title": "Assignment 1",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 5901431,
+                                "Title": "Assignment 2",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 5901432,
+                                "Title": "Assignment 3",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 5901433,
+                                "Title": "Assignment 4",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            }
+                        ]
+                    },
+                    {
+                        "ModuleId": 5901386,
+                        "Title": "Quizzes",
+                        "Modules": [],
+                        "Topics": [
+                            {
+                                "TopicId": 5901459,
+                                "Title": "Quiz 1 Possible Questions",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 5901460,
+                                "Title": "Quiz 2 Possible Questions",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 5901461,
+                                "Title": "Quiz 3 Possible Questions",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 5901462,
+                                "Title": "Quiz 4 Possible Questions",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 6023037,
+                                "Title": "Quiz 1",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 6037317,
+                                "Title": "Quiz 2",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 6052553,
+                                "Title": "Quiz 3",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 6084178,
+                                "Title": "Quiz 4",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            }
+                        ]
+                    },
+                    {
+                        "ModuleId": 5901409,
+                        "Title": "Project",
+                        "Modules": [
+                            {
+                                "ModuleId": 5901441,
+                                "Title": "Assignments",
+                                "Modules": [],
+                                "Topics": []
+                            },
+                            {
+                                "ModuleId": 5901443,
+                                "Title": "Rubrics",
+                                "Modules": [],
+                                "Topics": []
+                            }
+                        ],
+                        "Topics": [
+                            {
+                                "TopicId": 5901442,
+                                "Title": "Project Description",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            }
+                        ]
+                    }
+                ],
+                "Topics": [
+                    {
+                        "TopicId": 5901404,
+                        "Title": "Final Essay",
+                        "TopicType": 0,
+                        "IsHidden": false
+                    }
+                ]
+            },
+            {
+                "ModuleId": 5901382,
+                "Title": "Weekly Schedule",
+                "Modules": [
+                    {
+                        "ModuleId": 5901388,
+                        "Title": "Week 1",
+                        "Modules": [
+                            {
+                                "ModuleId": 5901426,
+                                "Title": "Keynote",
+                                "Modules": [],
+                                "Topics": []
+                            }
+                        ],
+                        "Topics": []
+                    },
+                    {
+                        "ModuleId": 5901389,
+                        "Title": "Week 2",
+                        "Modules": [
+                            {
+                                "ModuleId": 5901421,
+                                "Title": "Keynote",
+                                "Modules": [],
+                                "Topics": [
+                                    {
+                                        "TopicId": 5901476,
+                                        "Title": "What 4 Year Olds Can Do and AI Can't (Yet)",
+                                        "TopicType": 0,
+                                        "IsHidden": false
+                                    }
+                                ]
+                            }
+                        ],
+                        "Topics": []
+                    },
+                    {
+                        "ModuleId": 5901390,
+                        "Title": "Week 3",
+                        "Modules": [
+                            {
+                                "ModuleId": 5901422,
+                                "Title": "Keynote",
+                                "Modules": [],
+                                "Topics": [
+                                    {
+                                        "TopicId": 5901477,
+                                        "Title": "How To Coordinate a Thousand Robots",
+                                        "TopicType": 0,
+                                        "IsHidden": false
+                                    }
+                                ]
+                            },
+                            {
+                                "ModuleId": 5901427,
+                                "Title": "Search",
+                                "Modules": [],
+                                "Topics": []
+                            }
+                        ],
+                        "Topics": []
+                    },
+                    {
+                        "ModuleId": 5901391,
+                        "Title": "Week 4",
+                        "Modules": [
+                            {
+                                "ModuleId": 5901423,
+                                "Title": "Keynote",
+                                "Modules": [],
+                                "Topics": [
+                                    {
+                                        "TopicId": 5901481,
+                                        "Title": "Deep Learning for System 2 Processing",
+                                        "TopicType": 0,
+                                        "IsHidden": false
+                                    }
+                                ]
+                            }
+                        ],
+                        "Topics": [
+                            {
+                                "TopicId": 5901445,
+                                "Title": "AI Apple Picking (it's awesome!)",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            }
+                        ]
+                    },
+                    {
+                        "ModuleId": 5901392,
+                        "Title": "Week 5",
+                        "Modules": [
+                            {
+                                "ModuleId": 5901424,
+                                "Title": "Keynote",
+                                "Modules": [],
+                                "Topics": [
+                                    {
+                                        "TopicId": 5901478,
+                                        "Title": "Doing for our robots what nature did for us",
+                                        "TopicType": 0,
+                                        "IsHidden": false
+                                    }
+                                ]
+                            }
+                        ],
+                        "Topics": []
+                    },
+                    {
+                        "ModuleId": 5901399,
+                        "Title": "Week 6",
+                        "Modules": [
+                            {
+                                "ModuleId": 5901418,
+                                "Title": "Keynote",
+                                "Modules": [],
+                                "Topics": [
+                                    {
+                                        "TopicId": 5901479,
+                                        "Title": "Doing Some Good with Machine Learning",
+                                        "TopicType": 0,
+                                        "IsHidden": false
+                                    }
+                                ]
+                            },
+                            {
+                                "ModuleId": 5901428,
+                                "Title": "Relevant Humour",
+                                "Modules": [],
+                                "Topics": []
+                            }
+                        ],
+                        "Topics": []
+                    },
+                    {
+                        "ModuleId": 5901393,
+                        "Title": "Reading Week",
+                        "Modules": [],
+                        "Topics": []
+                    },
+                    {
+                        "ModuleId": 5901394,
+                        "Title": "Week 7",
+                        "Modules": [
+                            {
+                                "ModuleId": 5901438,
+                                "Title": "Lessons",
+                                "Modules": [],
+                                "Topics": []
+                            },
+                            {
+                                "ModuleId": 5901419,
+                                "Title": "Keynote",
+                                "Modules": [],
+                                "Topics": [
+                                    {
+                                        "TopicId": 5901480,
+                                        "Title": "Language to Action: Towards Interactive Task Learning with Physical Agents",
+                                        "TopicType": 0,
+                                        "IsHidden": false
+                                    }
+                                ]
+                            }
+                        ],
+                        "Topics": []
+                    },
+                    {
+                        "ModuleId": 5901395,
+                        "Title": "Week 8",
+                        "Modules": [
+                            {
+                                "ModuleId": 5901429,
+                                "Title": "Robot Uprising",
+                                "Modules": [],
+                                "Topics": []
+                            },
+                            {
+                                "ModuleId": 5901446,
+                                "Title": "Keynote",
+                                "Modules": [],
+                                "Topics": [
+                                    {
+                                        "TopicId": 5901483,
+                                        "Title": "You Can't Escape Hyperparameters and Latent Variables: Machine Learning as a Software Engineering Enterprise",
+                                        "TopicType": 0,
+                                        "IsHidden": false
+                                    }
+                                ]
+                            }
+                        ],
+                        "Topics": []
+                    },
+                    {
+                        "ModuleId": 5901396,
+                        "Title": "Week 9",
+                        "Modules": [
+                            {
+                                "ModuleId": 5901447,
+                                "Title": "Keynote",
+                                "Modules": [],
+                                "Topics": [
+                                    {
+                                        "TopicId": 5901507,
+                                        "Title": "Neurosymbolic AI",
+                                        "TopicType": 0,
+                                        "IsHidden": false
+                                    }
+                                ]
+                            },
+                            {
+                                "ModuleId": 5901449,
+                                "Title": "Cool Decision Tree Demo",
+                                "Modules": [],
+                                "Topics": [
+                                    {
+                                        "TopicId": 5901510,
+                                        "Title": "A visual introduction to machine learning",
+                                        "TopicType": 0,
+                                        "IsHidden": false
+                                    }
+                                ]
+                            }
+                        ],
+                        "Topics": []
+                    },
+                    {
+                        "ModuleId": 5901397,
+                        "Title": "Week 10",
+                        "Modules": [
+                            {
+                                "ModuleId": 5901457,
+                                "Title": "Human Detectors",
+                                "Modules": [],
+                                "Topics": []
+                            },
+                            {
+                                "ModuleId": 5901451,
+                                "Title": "Keynote",
+                                "Modules": [],
+                                "Topics": [
+                                    {
+                                        "TopicId": 5901508,
+                                        "Title": "MuZero",
+                                        "TopicType": 0,
+                                        "IsHidden": false
+                                    }
+                                ]
+                            }
+                        ],
+                        "Topics": []
+                    },
+                    {
+                        "ModuleId": 5901398,
+                        "Title": "Week 11",
+                        "Modules": [
+                            {
+                                "ModuleId": 5901458,
+                                "Title": "Last Week Tonight",
+                                "Modules": [],
+                                "Topics": [
+                                    {
+                                        "TopicId": 5901519,
+                                        "Title": "Topic: Artificial Intelligence",
+                                        "TopicType": 0,
+                                        "IsHidden": false
+                                    }
+                                ]
+                            },
+                            {
+                                "ModuleId": 5901452,
+                                "Title": "Assignment 4",
+                                "Modules": [],
+                                "Topics": [
+                                    {
+                                        "TopicId": 5901513,
+                                        "Title": "Assignment 4",
+                                        "TopicType": 0,
+                                        "IsHidden": false
+                                    }
+                                ]
+                            },
+                            {
+                                "ModuleId": 5901450,
+                                "Title": "Keynote",
+                                "Modules": [],
+                                "Topics": [
+                                    {
+                                        "TopicId": 5901509,
+                                        "Title": "Building machines that learn and think like people",
+                                        "TopicType": 0,
+                                        "IsHidden": false
+                                    }
+                                ]
+                            }
+                        ],
+                        "Topics": []
+                    },
+                    {
+                        "ModuleId": 5901400,
+                        "Title": "Week 12",
+                        "Modules": [
+                            {
+                                "ModuleId": 5901453,
+                                "Title": "Upcoming Assessments",
+                                "Modules": [],
+                                "Topics": [
+                                    {
+                                        "TopicId": 5901512,
+                                        "Title": "Final Essay",
+                                        "TopicType": 0,
+                                        "IsHidden": false
+                                    }
+                                ]
+                            },
+                            {
+                                "ModuleId": 5901464,
+                                "Title": "Keynote",
+                                "Modules": [],
+                                "Topics": [
+                                    {
+                                        "TopicId": 5901527,
+                                        "Title": "ChatGP-why: When, if ever, is synthetic text safe, appropriate, and desirable?",
+                                        "TopicType": 0,
+                                        "IsHidden": false
+                                    }
+                                ]
+                            }
+                        ],
+                        "Topics": []
+                    }
+                ],
+                "Topics": []
+            },
+            {
+                "ModuleId": 5901385,
+                "Title": "Resources",
+                "Modules": [
+                    {
+                        "ModuleId": 5901412,
+                        "Title": "Course Content",
+                        "Modules": [],
+                        "Topics": [
+                            {
+                                "TopicId": 5901473,
+                                "Title": "videos",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 5973096,
+                                "Title": "CISC 352 -- weeks 1-8",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 5901474,
+                                "Title": "CISC 352 -- weeks 9-12",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            }
+                        ]
+                    },
+                    {
+                        "ModuleId": 5901406,
+                        "Title": "Python Programming",
+                        "Modules": [],
+                        "Topics": []
+                    },
+                    {
+                        "ModuleId": 5901408,
+                        "Title": "Search",
+                        "Modules": [],
+                        "Topics": [
+                            {
+                                "TopicId": 5901467,
+                                "Title": "Interactive A* Search Website",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 5901468,
+                                "Title": "Minimax + AB Pruning Tutorial",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 6107811,
+                                "Title": "Alpha-Beta Pruning Practice",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            }
+                        ]
+                    },
+                    {
+                        "ModuleId": 5901410,
+                        "Title": "Bayes Nets",
+                        "Modules": [],
+                        "Topics": [
+                            {
+                                "TopicId": 5901469,
+                                "Title": "Course Notes on D-Separation",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            }
+                        ]
+                    },
+                    {
+                        "ModuleId": 5901407,
+                        "Title": "Deep Learning",
+                        "Modules": [],
+                        "Topics": [
+                            {
+                                "TopicId": 5901465,
+                                "Title": "The spelled-out intro to neural networks and backpropagation: building micrograd",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 5901470,
+                                "Title": "Tutorial on core deep learning concepts",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 5901472,
+                                "Title": "Practical Deep Learning for Coders",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 5901475,
+                                "Title": "Explanation of Backpropagation Calculus",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 5901471,
+                                "Title": "Transformers From Scratch",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 5922995,
+                                "Title": "Transformer Explained",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            },
+                            {
+                                "TopicId": 5923010,
+                                "Title": "Diffusion Explainer",
+                                "TopicType": 0,
+                                "IsHidden": false
+                            }
+                        ]
+                    }
+                ],
+                "Topics": []
+            }
+        ],
+        "Topics": null
+    },
+    "step": "fetch_toc",
+    "timestamp": "2026-04-03T03:54:31Z"
+}

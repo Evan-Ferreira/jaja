@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime"
 	"net/http"
+	"path/filepath"
+	"strings"
 	"sync"
 
 	"server/internal/config"
@@ -25,6 +28,8 @@ const (
 	EnrollmentsPath       = "/d2l/api/lp/%s/enrollments/myenrollments/?orgUnitTypeId=%d"
 	DropboxFoldersPath    = "/d2l/api/le/%s/%d/dropbox/folders/"
 	DropboxAttachmentPath = "/d2l/api/le/%s/%d/dropbox/folders/%d/attachments/%d"
+	ContentTOCPath        = "/d2l/api/le/%s/%d/content/toc"
+	ContentTopicFilePath  = "/d2l/api/le/%s/%d/content/topics/%d/file"
 )
 
 // ── Client ────────────────────────────────────────────────────────────────────
@@ -89,6 +94,52 @@ func (c *D2LClient) getBytes(path string) ([]byte, error) {
 		return nil, fmt.Errorf("d2l: read body: %w", err)
 	}
 	return body, nil
+}
+
+// getFile fetches path and returns the body bytes plus the original filename from
+// the Content-Disposition header (e.g. "syllabus.pdf"). Filename is empty if absent.
+func (c *D2LClient) getFile(path string) (data []byte, filename string, err error) {
+	req, err := http.NewRequest(http.MethodGet, c.baseURL+path, nil)
+	if err != nil {
+		return nil, "", fmt.Errorf("d2l: build request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+c.token)
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return nil, "", fmt.Errorf("d2l: request failed: %w", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, "", &d2lStatusError{code: res.StatusCode, path: path}
+	}
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, "", fmt.Errorf("d2l: read body: %w", err)
+	}
+
+	if cd := res.Header.Get("Content-Disposition"); cd != "" {
+		if _, params, parseErr := mime.ParseMediaType(cd); parseErr == nil {
+			filename = params["filename"]
+		}
+	}
+	return body, filename, nil
+}
+
+// sanitizeKey replaces characters that are awkward in S3 keys with underscores.
+func sanitizeKey(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '.':
+			b.WriteRune(r)
+		default:
+			b.WriteRune('_')
+		}
+	}
+	return b.String()
 }
 
 // get fetches path and JSON-decodes the response into out.
@@ -182,6 +233,60 @@ func (c *D2LClient) saveAttachment(ctx context.Context, orgUnitID int, folderID 
 	if err := config.S3BasicsBucket.UploadLargeObject(ctx, "test-bucket", key, data); err != nil {
 		log.Printf("d2l: upload attachment %q to S3: %v", key, err)
 	}
+}
+
+// collectTopics recursively flattens all topics from a TOC tree.
+func collectTopics(modules []d2lContentModule, topics []d2lContentTopic) []d2lContentTopic {
+	all := append([]d2lContentTopic{}, topics...)
+	for _, m := range modules {
+		all = append(all, collectTopics(m.Modules, m.Topics)...)
+	}
+	return all
+}
+
+// updateContent fetches the full content TOC for orgUnitID, then concurrently downloads
+// every topic file and uploads it to S3 under content/{orgUnitID}/{topicID}.
+// Non-accessible topics (403/404) are silently skipped.
+func (c *D2LClient) updateContent(ctx context.Context, orgUnitID int) {
+	tocPath := fmt.Sprintf(ContentTOCPath, c.leVersion, orgUnitID)
+
+	var toc d2lContentTOC
+	if err := c.get(tocPath, &toc); err != nil {
+		if !isSkippableStatus(err) {
+			log.Printf("d2l: fetch content TOC for org unit %d: %v", orgUnitID, err)
+		}
+		return
+	}
+
+	topics := collectTopics(toc.Modules, toc.Topics)
+	log.Printf("d2l: found %d topics in TOC for org unit %d", len(topics), orgUnitID)
+
+	var wg sync.WaitGroup
+	for _, topic := range topics {
+		wg.Add(1)
+		go func(t d2lContentTopic) {
+			defer wg.Done()
+
+			filePath := fmt.Sprintf(ContentTopicFilePath, c.leVersion, orgUnitID, t.TopicID)
+			data, filename, err := c.getFile(filePath)
+			if err != nil {
+				if !isSkippableStatus(err) {
+					log.Printf("d2l: download topic %d %q (org unit %d): %v", t.TopicID, t.Title, orgUnitID, err)
+				}
+				return
+			}
+
+			ext := filepath.Ext(filename)
+			key := fmt.Sprintf("content/%d/%d_%s%s", orgUnitID, t.TopicID, sanitizeKey(t.Title), ext)
+			//TODO: Change test-bucket to real bucket name
+			if err := config.S3BasicsBucket.UploadLargeObject(ctx, "test-bucket", key, data); err != nil {
+				log.Printf("d2l: upload topic %d %q to S3: %v", t.TopicID, t.Title, err)
+				return
+			}
+			log.Printf("d2l: uploaded topic %d %q (%d bytes) -> %q", t.TopicID, t.Title, len(data), key)
+		}(topic)
+	}
+	wg.Wait()
 }
 
 // updateCourse upserts a single course into the DB and returns the persisted record.
@@ -286,6 +391,9 @@ func (c *D2LClient) SyncD2L() error {
 				return
 			}
 
+			ctx := context.Background()
+			c.updateContent(ctx, enrollment.OrgUnit.ID)
+
 			if err := c.updateAssignments(course, enrollment.OrgUnit.ID); err != nil {
 				errs <- err
 			}
@@ -351,4 +459,10 @@ func (c *D2LClient) LoadCoursesAndAssignments() ([]Course, error) {
 	}
 
 	return courses, nil
+}
+
+// SyncSyllabus fetches and uploads all content topics for orgUnitID to S3.
+func (c *D2LClient) SyncSyllabus(orgUnitID int) error {
+	c.updateContent(context.Background(), orgUnitID)
+	return nil
 }

@@ -72,6 +72,26 @@ type d2lDropboxFolder struct {
 	Attachments  []d2lAttachment      `json:"Attachments"`
 }
 
+// TopicType 1 = File, 2 = Link
+type d2lContentTopic struct {
+	TopicID   int    `json:"TopicId"`
+	Title     string `json:"Title"`
+	TopicType int    `json:"TopicType"`
+	IsHidden  bool   `json:"IsHidden"`
+}
+
+type d2lContentModule struct {
+	ModuleID int                `json:"ModuleId"`
+	Title    string             `json:"Title"`
+	Modules  []d2lContentModule `json:"Modules"`
+	Topics   []d2lContentTopic  `json:"Topics"`
+}
+
+type d2lContentTOC struct {
+	Modules []d2lContentModule `json:"Modules"`
+	Topics  []d2lContentTopic  `json:"Topics"`
+}
+
 // ── Public output types ───────────────────────────────────────────────────────
 
 type Assignment struct {
