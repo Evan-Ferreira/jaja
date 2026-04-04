@@ -2,6 +2,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { formatDueDate } from '@/utils/string';
 import { Course } from './types';
+import { ResyncButton } from './resync-button';
 
 async function getCourses(): Promise<Course[]> {
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/d2l/courses`);
@@ -15,7 +16,6 @@ async function getCourses(): Promise<Course[]> {
     return await res.json();
 }
 
-//TODO: This page will need to change just a POC to test fetching courses and assignments. We can add more details and styling later.
 export default async function CoursesPage() {
     let courses: Course[] = [];
     let error: string | null = null;
@@ -28,7 +28,10 @@ export default async function CoursesPage() {
 
     return (
         <div className="min-h-screen p-8 max-w-4xl mx-auto">
-            <h1 className="text-2xl font-bold mb-6">Courses & Assignments</h1>
+            <div className="flex items-center justify-between mb-6">
+                <h1 className="text-2xl font-bold">Courses & Assignments</h1>
+                <ResyncButton />
+            </div>
 
             {error && (
                 <p className="text-sm text-red-500 border border-red-200 rounded px-4 py-3">
@@ -36,7 +39,7 @@ export default async function CoursesPage() {
                 </p>
             )}
 
-            {!error && courses.length === 0 && (
+            {!error && courses == null && (
                 <p className="text-sm text-muted-foreground">No courses found.</p>
             )}
 

@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"net/http"
+	"time"
 )
 
 // ── Errors ────────────────────────────────────────────────────────────────────
@@ -30,8 +31,13 @@ type d2lOrgUnit struct {
 	Code string         `json:"Code"`
 }
 
+type d2lEnrollmentAccess struct {
+	CanAccess bool `json:"CanAccess"`
+}
+
 type d2lEnrollment struct {
-	OrgUnit d2lOrgUnit `json:"OrgUnit"`
+	OrgUnit d2lOrgUnit           `json:"OrgUnit"`
+	Access  d2lEnrollmentAccess  `json:"Access"`
 }
 
 type d2lEnrollmentsPage struct {
@@ -51,23 +57,29 @@ type d2lDropboxAssessment struct {
 	ScoreDenominator *float64 `json:"ScoreDenominator"`
 }
 
+type d2lAttachment struct {
+	FileID   int    `json:"FileId"`
+	FileName string `json:"FileName"`
+}
+
 type d2lDropboxFolder struct {
-	ID           int                    `json:"Id"`
-	Name         string                 `json:"Name"`
-	Instructions d2lRichText            `json:"CustomInstructions"`
-	DueDate      *string                `json:"DueDate"` // ISO 8601 or null
-	Assessment   d2lDropboxAssessment   `json:"Assessment"`
-	IsHidden     bool                   `json:"IsHidden"`
+	ID           int                  `json:"Id"`
+	Name         string               `json:"Name"`
+	Instructions d2lRichText          `json:"CustomInstructions"`
+	DueDate      *string              `json:"DueDate"` // ISO 8601 or null
+	Assessment   d2lDropboxAssessment `json:"Assessment"`
+	IsHidden     bool                 `json:"IsHidden"`
+	Attachments  []d2lAttachment      `json:"Attachments"`
 }
 
 // ── Public output types ───────────────────────────────────────────────────────
 
 type Assignment struct {
-	ID           int      `json:"id"`
-	Name         string   `json:"name"`
-	Instructions string   `json:"instructions"`
-	DueDate      *string  `json:"due_date"`
-	ScoreOutOf   *float64 `json:"score_out_of"` // sourced from Assessment.ScoreDenominator
+	ID           int        `json:"id"`
+	Name         string     `json:"name"`
+	Instructions *string    `json:"instructions"`
+	DueDate      *time.Time `json:"due_date"`
+	ScoreOutOf   *float64   `json:"score_out_of"`
 }
 
 type Course struct {
