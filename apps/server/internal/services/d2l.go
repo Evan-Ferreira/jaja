@@ -128,6 +128,8 @@ func (c *D2LClient) getActiveEnrollments() ([]d2lEnrollment, error) {
 		}
 	}
 
+	//  D2L has no way of returning all enrollments at once its always paginated.
+	// Each enrollment is visited exactly once across all pages.
 	for page.PagingInfo.HasMoreItems {
 		if err := c.get(basePath+"&bookmark="+page.PagingInfo.Bookmark, &page); err != nil {
 			return nil, err
@@ -166,6 +168,7 @@ func (c *D2LClient) saveAttachment(ctx context.Context, orgUnitID int, folderID 
 		return
 	}
 	if exists {
+		log.Printf("d2l: attachment with same filename %q already exists in S3, skipping upload", key)
 		return
 	}
 

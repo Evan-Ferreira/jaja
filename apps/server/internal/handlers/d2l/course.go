@@ -11,6 +11,7 @@ import (
 )
 
 func GetCoursesAndAssignments(c *gin.Context) {
+	// TODO: replace with real user ID from auth
 	client, err := services.NewD2LClient(seed.TestUserID)
 	if err != nil {
 		log.Printf("d2l: create client: %v", err)
@@ -29,6 +30,7 @@ func GetCoursesAndAssignments(c *gin.Context) {
 }
 
 func SyncCoursesAndAssignments(c *gin.Context) {
+	// TODO: replace with real user ID from auth
 	client, err := services.NewD2LClient(seed.TestUserID)
 	if err != nil {
 		log.Printf("d2l: create client: %v", err)

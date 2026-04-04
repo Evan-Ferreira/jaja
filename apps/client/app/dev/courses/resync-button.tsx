@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { syncCourses } from './actions';
 
 export function ResyncButton() {
     const router = useRouter();
@@ -14,7 +13,10 @@ export function ResyncButton() {
         setLoading(true);
         setError(null);
         try {
-            await syncCourses();
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/d2l/sync`, {
+                method: 'POST',
+            });
+            if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
             router.refresh();
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Unknown error');
