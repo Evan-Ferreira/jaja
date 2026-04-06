@@ -1,63 +1,51 @@
-package agent
+package main
 
 import (
 	"context"
-	"fmt"
-
+	"log"
 	"os"
 
-	"github.com/anthropics/anthropic-sdk-go"
-	"github.com/anthropics/anthropic-sdk-go/option"
+	"server/agent/models"
+
+	"google.golang.org/adk/agent"
+	"google.golang.org/adk/agent/llmagent"
+	"google.golang.org/adk/cmd/launcher"
+	"google.golang.org/adk/cmd/launcher/full"
+	"google.golang.org/adk/tool"
+	"google.golang.org/adk/tool/geminitool"
 )
-type Agent struct {
-	client *anthropic.Client
+
+// TODO: Change agent boilerplate
+func main() {
+    ctx := context.Background()
+
+	model, err := models.NewAnthropicModel("claude-sonnet-4-20250514")
+
+    if err != nil {
+        log.Fatalf("Failed to create model: %v", err)
+    }
+
+    // 2. Define the agent.
+    a, err := llmagent.New(llmagent.Config{
+        Name:        "multi_tool_agent",
+        Model:       model,
+        Description: "An agent that can answer questions using Google Search.",
+        Instruction: "You are a helpful assistant. Use the available tools to answer questions.",
+        Tools: []tool.Tool{
+            geminitool.GoogleSearch{},
+        },
+    })
+    if err != nil {
+        log.Fatalf("Failed to create agent: %v", err)
+    }
+
+    // 3. Configure the launcher and run.
+    config := &launcher.Config{
+        AgentLoader: agent.NewSingleLoader(a),
+    }
+
+    l := full.NewLauncher()
+    if err = l.Execute(ctx, config, os.Args[1:]); err != nil {
+        log.Fatalf("Run failed: %v\n\n%s", err, l.CommandLineSyntax())
+    }
 }
-func newClient() (*anthropic.Client, error) {
-	apiKey := os.Getenv("ANTHROPIC_API_KEY")
-
-	if apiKey == "" {
-		return nil, fmt.Errorf("ANTHROPIC_API_KEY is not set")
-	}
-
-	client := anthropic.NewClient(
-		option.WithAPIKey(apiKey), 
-	)
-
-	return &client, nil
-}
-
-
-
-func New() (*Agent, error){
-	client, err := newClient()
-
-	if err != nil {
-		return nil, fmt.Errorf(err.Error())
-	}
-
-	return &Agent{
-		client,
-	}, nil
-}
-
-func (agent *Agent) Run(ctx context.Context, model anthropic.Model, prompt string, fileUrl *string) (*anthropic.Message, error){
-	message := anthropic.NewUserMessage(
-		anthropic.NewDocumentBlock(anthropic.URLPDFSourceParam{
-			URL: *fileUrl,
-		}),
-		anthropic.NewTextBlock(prompt),
-	)
-
-	response, err := agent.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     model,
-		MaxTokens: 1024,
-		Messages:  []anthropic.MessageParam{message},
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf(fmt.Sprintf("Error getting Claude response: %s", err.Error()))
-	}
-
-	return response, nil
-}
-

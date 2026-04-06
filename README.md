@@ -1,6 +1,6 @@
 # jaja
 
-JAJA: Just Automate Junk Assignments — a web app for saving D2L (Desire2Learn) cookies and local storage to a database. Monorepo with a Next.js frontend and Go backend, backed by PostgreSQL and MinIO (S3-compatible object storage).
+JAJA: Just Automate Junk Assignments — a web app for saving D2L (Desire2Learn) cookies and local storage to a database, with Claude AI integration for assignment completion. Monorepo with a Next.js frontend and Go backend, backed by PostgreSQL and MinIO (S3-compatible object storage).
 
 ## Prerequisites
 
@@ -18,7 +18,7 @@ docker compose up
 | Service       | URL                   |
 | ------------- | --------------------- |
 | Frontend      | http://localhost:3000 |
-| Server API    | http://localhost:8080 |
+| Server API    | http://localhost:4000 |
 | PostgreSQL    | localhost:5432        |
 | MinIO API     | http://localhost:9000 |
 | MinIO Console | http://localhost:9001 |
@@ -54,18 +54,21 @@ Runs at http://localhost:8080
 Copy the example files and fill in your values:
 
 - **Root** `.env` — Docker Compose services (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`)
-- **Server** `apps/server/.env` — Go server (`PORT`, `FRONTEND_URL`, `DB_URL`, `MINIO_URL`, `AWS_REGION`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`)
+- **Server** `apps/server/.env` — Go server (`PORT`, `FRONTEND_URL`, `DB_URL`, `MINIO_URL`, `MINIO_PUBLIC_URL`, `AWS_REGION`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `ANTHROPIC_API_KEY`)
 - **Client** `apps/client/.env` — Next.js (`NEXT_PUBLIC_API_URL`)
 
 ## API Endpoints
 
-### D2L Credentials
+### D2L Integration
 
 - `POST /d2l/credentials` — Save D2L cookies and localStorage data
+- `GET /d2l/courses` — Load user's courses and assignments from D2L
+- `POST /d2l/sync` — Sync courses and assignments from D2L to database
 
 ### Dev (Development/Testing)
 
 - `POST /dev/assignment-files` — Upload assignment files (instructions/rubric) to S3 storage
+- `POST /dev/complete-assignment` — Submit assignment to Claude AI for completion (WIP)
 
 ## Tech Stack
 
@@ -73,3 +76,4 @@ Copy the example files and fill in your values:
 - **Backend**: Go 1.25, Gin, GORM
 - **Database**: PostgreSQL
 - **Object Storage**: MinIO (S3-compatible)
+- **AI**: Anthropic Claude API, Google Agent Development Kit (experimental)

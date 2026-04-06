@@ -5,6 +5,7 @@
             "Bash(go build ./...)",
             "Bash(go test ./...)",
             "Bash(go vet ./...)",
+            "Bash(go doc:*)",
             "Bash(bun install)",
             "Bash(bun dev)",
             "Bash(bun build)",
