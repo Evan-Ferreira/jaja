@@ -200,10 +200,10 @@ func collectTopics(modules []d2lContentModule, topics []d2lContentTopic) []d2lCo
 	return all
 }
 
-// updateContent fetches the full content TOC for orgUnitID, then concurrently downloads
+// UpdateContent fetches the full content TOC for orgUnitID, then concurrently downloads
 // every topic file and uploads it to S3 under content/{orgUnitID}/{topicID}.
 // Non-accessible topics (403/404) are silently skipped.
-func (c *D2LClient) updateContent(ctx context.Context, orgUnitID int) {
+func (c *D2LClient) UpdateContent(ctx context.Context, orgUnitID int) {
 	tocPath := fmt.Sprintf(ContentTOCPath, c.leVersion, orgUnitID)
 
 	var toc d2lContentTOC
@@ -347,8 +347,9 @@ func (c *D2LClient) SyncD2L() error {
 				return
 			}
 
-			ctx := context.Background()
-			c.updateContent(ctx, enrollment.OrgUnit.ID)
+			//TODO: Add once we have job qeuee set up to avoid long-running request timeouts
+			// ctx := context.Background()
+			// c.UpdateContent(ctx, enrollment.OrgUnit.ID)
 
 			if err := c.updateAssignments(course, enrollment.OrgUnit.ID); err != nil {
 				errs <- err
@@ -415,10 +416,4 @@ func (c *D2LClient) LoadCoursesAndAssignments() ([]Course, error) {
 	}
 
 	return courses, nil
-}
-
-// SyncSyllabus fetches and uploads all content topics for orgUnitID to S3.
-func (c *D2LClient) SyncSyllabus(orgUnitID int) error {
-	c.updateContent(context.Background(), orgUnitID)
-	return nil
 }

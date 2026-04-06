@@ -1,6 +1,7 @@
 package dev
 
 import (
+	"context"
 	"log"
 	"net/http"
 
@@ -13,19 +14,15 @@ import (
 // testOrgUnitID is the D2L org unit ID used for manual content sync testing.
 const testOrgUnitID = 997744
 
-func SyncSyllabus(c *gin.Context) {
+func UpdateContent(c *gin.Context) {
 	client, err := services.NewD2LClient(seed.TestUserID)
 	if err != nil {
-		log.Printf("dev: sync content: create client: %v", err)
+		log.Printf("dev: update content: create client: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create D2L client"})
 		return
 	}
 
-	if err := client.SyncSyllabus(testOrgUnitID); err != nil {
-		log.Printf("dev: sync content (org unit %d): %v", testOrgUnitID, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to sync content"})
-		return
-	}
+	client.UpdateContent(context.Background(), testOrgUnitID)
 
 	c.JSON(http.StatusOK, gin.H{"success": true, "org_unit_id": testOrgUnitID})
 }
