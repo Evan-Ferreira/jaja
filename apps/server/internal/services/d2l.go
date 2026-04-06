@@ -226,7 +226,9 @@ func (c *D2LClient) UpdateContent(ctx context.Context, orgUnitID int) {
 			filePath := fmt.Sprintf(ContentTopicFilePath, c.leVersion, orgUnitID, t.TopicID)
 			data, filename, err := c.get(filePath, nil)
 			if err != nil {
-				if !isSkippableStatus(err) {
+			if isSkippableStatus(err) {
+					log.Printf("d2l: skipping topic %d %q (org unit %d): %v", t.TopicID, t.Title, orgUnitID, err)
+				} else {
 					log.Printf("d2l: download topic %d %q (org unit %d): %v", t.TopicID, t.Title, orgUnitID, err)
 				}
 				return
