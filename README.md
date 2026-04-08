@@ -20,6 +20,7 @@ docker compose up
 | Frontend      | http://localhost:3000 |
 | Server API    | http://localhost:4000 |
 | PostgreSQL    | localhost:5432        |
+| Redis         | localhost:6379        |
 | MinIO API     | http://localhost:9000 |
 | MinIO Console | http://localhost:9001 |
 
@@ -54,7 +55,7 @@ Runs at http://localhost:8080
 Copy the example files and fill in your values:
 
 - **Root** `.env` — Docker Compose services (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`)
-- **Server** `apps/server/.env` — Go server (`PORT`, `FRONTEND_URL`, `DB_URL`, `MINIO_URL`, `MINIO_PUBLIC_URL`, `AWS_REGION`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `ANTHROPIC_API_KEY`)
+- **Server** `apps/server/.env` — Go server (`PORT`, `FRONTEND_URL`, `DB_URL`, `REDIS_URL`, `MINIO_URL`, `MINIO_PUBLIC_URL`, `AWS_REGION`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `ANTHROPIC_API_KEY`)
 - **Client** `apps/client/.env` — Next.js (`NEXT_PUBLIC_API_URL`)
 
 ## API Endpoints
@@ -73,7 +74,8 @@ Copy the example files and fill in your values:
 ## Tech Stack
 
 - **Frontend**: Next.js 16 (App Router), React 19, Tailwind CSS 4, shadcn/ui, TypeScript
-- **Backend**: Go 1.25, Gin, GORM
+- **Backend**: Go 1.25, Gin, GORM, asynq (job queue)
 - **Database**: PostgreSQL
+- **Job Queue**: Redis + asynq
 - **Object Storage**: MinIO (S3-compatible)
 - **AI**: Anthropic Claude API, Google Agent Development Kit (experimental)

@@ -16,12 +16,14 @@ import (
 func main() {
 
 	err := godotenv.Load()
+	
 	if err != nil {
 		log.Fatalf("Error loading .env file")
 	}
 
 	log.Println("Successfully loaded environment variables")
 
+	config.ConnectRedis()
 	config.ConnectDB()
 	config.ConnectObjectStorage()
 

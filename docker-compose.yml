@@ -23,6 +23,13 @@ services:
         volumes:
             - minio_data:/data
 
+    redis:
+        image: redis:latest
+        ports:
+            - '6379:6379'
+        volumes:
+            - redis_data:/data
+
     server:
         build:
             context: ./apps/server
@@ -35,6 +42,7 @@ services:
             - .env
         depends_on:
             - db
+            - redis
 
     client:
         build:
@@ -53,3 +61,4 @@ services:
 volumes:
     pgdata:
     minio_data:
+    redis_data:
