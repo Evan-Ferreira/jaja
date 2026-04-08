@@ -41,4 +41,5 @@ func main() {
 	fmt.Println("Starting server on port " + port + "...")
 
 	router.Run(":" + port)
+
 }
