@@ -26,6 +26,10 @@ func main() {
 	config.ConnectRedis()
 	config.ConnectDB()
 	config.ConnectObjectStorage()
+	config.ConnectWorkers()
+
+	defer config.RedisClient.Close()
+	defer config.Worker.Shutdown()
 
 	router := gin.Default()
 

@@ -87,19 +87,20 @@ apps/
 │   ├── lib/utils.ts      # cn() helper (clsx + tailwind-merge)
 │   └── utils/string.ts   # parseStringToJSON() for tab-separated cookie/storage data
 └── server/               # Go 1.25 + Gin + GORM + Anthropic SDK + asynq
-    ├── cmd/main.go       # Entry point: loads env, connects DB + Redis + S3, sets up router
+    ├── cmd/main.go       # Entry point: loads env, connects DB + Redis + S3 + Workers, sets up router
     ├── agent/            # Claude AI integration via Anthropic SDK
     │   ├── agent.go      # Agent setup using Google ADK (experimental)
     │   └── models/       # AnthropicModel wrapper for ADK compatibility
     │       └── anthropic.go # Anthropic SDK client with ADK model interface
     ├── internal/
-    │   ├── config/       # ConnectDB(), ConnectRedis(), ConnectObjectStorage() (global vars: DBClient, RedisClient, S3BasicsBucket)
+    │   ├── config/       # ConnectDB(), ConnectRedis(), ConnectObjectStorage(), ConnectWorkers() (global vars: DBClient, RedisClient, Worker, S3BasicsBucket)
     │   ├── handlers/
     │   │   ├── d2l/      # D2L handlers: SaveCredentials, GetCoursesAndAssignments, SyncCoursesAndAssignments
     │   │   └── dev/      # Dev handlers: SaveAssignmentFiles (CompleteAssignment WIP)
     │   ├── models/       # GORM models: User, Org, D2LCookieSession, D2LLocalStorageSession
     │   ├── storage/      # BucketBasics S3 operations (CRUD, multipart, presigned URLs)
     │   ├── services/     # Business logic (d2l.go for D2L API client)
+    │   ├── tasks/        # Asynq task handlers (agent.go registers background job processors)
     │   └── routes/       # Route registration: RegisterD2LRoutes, RegisterDevRoutes
     └── migrations/       # Goose SQL migration files
 ```
@@ -113,7 +114,7 @@ apps/
     - `POST /dev/assignment-files` — Upload assignment files to S3 (multipart form data)
     - `POST /dev/complete-assignment` — Submit assignment to Claude AI for completion (currently disabled/WIP)
 - **Server → DB**: GORM with PostgreSQL via pgx driver. Global `config.DBClient` variable initialized via `config.ConnectDB()`. Used across handlers via `config.DBClient.Create()`, `.Query()`, etc.
-- **Server → Redis/asynq**: Asynq job queue (`github.com/hibiken/asynq`) for background task processing. Global `config.RedisClient` (*asynq.Client) initialized via `config.ConnectRedis()` from `REDIS_URL` env var. Enables async task enqueueing and worker-based job execution.
+- **Server → Redis/asynq**: Asynq job queue (`github.com/hibiken/asynq`) for background task processing. Global `config.RedisClient` (*asynq.Client) and `config.Worker` (*asynq.Server) initialized via `config.ConnectRedis()` and `config.ConnectWorkers()` from `REDIS_URL` env var. Handlers enqueue tasks via `config.RedisClient.Enqueue()`, and the worker processes them via task handlers registered in `internal/tasks/`. Worker runs with concurrency of 10 and automatically starts in `cmd/main.go` on server startup.
 - **Server → S3**: AWS SDK Go v2 with MinIO (S3-compatible). Global `config.S3BasicsBucket` (BucketBasics struct) initialized via `config.ConnectObjectStorage()` with static credentials. Provides bucket/object operations (CRUD, multipart uploads/downloads, copy, list, exists check, presigned URLs). Connection validates via ListBuckets on startup. Presigned URLs are signed with `MINIO_PUBLIC_URL` (for external access via cloudflared) or `MINIO_URL` (internal).
 - **Server → Claude AI**: Anthropic SDK Go client (`github.com/anthropics/anthropic-sdk-go`) initialized from `ANTHROPIC_API_KEY` env var. `agent/models/anthropic.go` provides an AnthropicModel wrapper that implements the Google ADK model interface for compatibility with agent frameworks. `CompleteAssignment` handler (currently WIP) will generate presigned S3 URLs and send PDFs to Claude for processing.
 - **CORS**: Server reads `FRONTEND_URL` from env to configure allowed origins.
