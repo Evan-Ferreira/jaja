@@ -44,8 +44,8 @@ type Frontmatter struct {
 }
 
 // Validate checks that all frontmatter fields meet the agentskills.io spec.
-// Set allowSnakeCase to true to also accept snake_case skill names.
-func (f *Frontmatter) Validate(allowSnakeCase bool) error {
+// NOTE: snake_case skill names are not supported, only kebab-case is allowed.
+func (f *Frontmatter) Validate() error {
 	// NOTE: full NFKC normalization requires golang.org/x/text/unicode/norm.
 	// Omitted here to keep dependencies minimal; add norm.NFKC.String(f.Name)
 	// if non-ASCII skill names are expected.
@@ -57,12 +57,6 @@ func (f *Frontmatter) Validate(allowSnakeCase bool) error {
 	pattern := kebabNamePattern
 	msg := ("name must be lowercase kebab-case (a-z, 0-9, hyphens), " +
 		"with no leading, trailing, or consecutive delimiters")
-	if allowSnakeCase {
-		pattern = snakeOrKebabPattern
-		msg = ("name must be lowercase kebab-case or snake_case, " +
-			"with no leading, trailing, or consecutive delimiters; " +
-			"mixing hyphens and underscores is not allowed")
-	}
 	
 	if !pattern.MatchString(f.Name) {
 		return fmt.Errorf("%s", msg)

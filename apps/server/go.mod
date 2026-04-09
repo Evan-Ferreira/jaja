@@ -15,6 +15,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	google.golang.org/adk v1.0.0
 	google.golang.org/genai v1.40.0
+	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.1
 )
