@@ -1,4 +1,4 @@
-package main
+package agent
 
 import (
 	"context"
@@ -12,11 +12,10 @@ import (
 	"google.golang.org/adk/cmd/launcher"
 	"google.golang.org/adk/cmd/launcher/full"
 	"google.golang.org/adk/tool"
-	"google.golang.org/adk/tool/geminitool"
 )
 
 // TODO: Change agent boilerplate
-func main() {
+func Run() {
     ctx := context.Background()
 
 	model, err := models.NewAnthropicModel("claude-sonnet-4-20250514")
@@ -32,7 +31,6 @@ func main() {
         Description: "An agent that can answer questions using Google Search.",
         Instruction: "You are a helpful assistant. Use the available tools to answer questions.",
         Tools: []tool.Tool{
-            geminitool.GoogleSearch{},
         },
     })
     if err != nil {
