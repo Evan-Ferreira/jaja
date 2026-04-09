@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-JAJA (Just Automate Junk Assignments) — a web app for saving D2L (Desire2Learn) cookies and local storage to a database. Monorepo with a Next.js frontend and Go backend, backed by PostgreSQL, MinIO (S3-compatible object storage), and Claude AI (Anthropic) for assignment completion.
+JAJA (Just Automate Junk Assignments) — a web app for saving D2L (Desire2Learn) cookies and local storage to a database. Monorepo with a Next.js frontend and Go backend, backed by PostgreSQL, MinIO (S3-compatible object storage), Redis (job queue), and Claude AI (Anthropic) for assignment completion.
 
 ## Development Commands
 
@@ -15,12 +15,13 @@ JAJA (Just Automate Junk Assignments) — a web app for saving D2L (Desire2Learn
 cloudflared tunnel --url http://localhost:9000
 
 # Then start the full stack
-docker compose up          # Starts db, minio, server, and client with hot reload
+docker compose up          # Starts db, redis, minio, server, and client with hot reload
 ```
 
 - Frontend: http://localhost:3000
 - Server: http://localhost:4000 (via Docker) or http://localhost:8080 (manual)
 - PostgreSQL: localhost:5432
+- Redis: localhost:6379
 - MinIO API: http://localhost:9000
 - MinIO Console: http://localhost:9001
 
@@ -47,7 +48,17 @@ go mod download
 go run cmd/main.go
 ```
 
-This starts the server on port specified by `PORT` env var (default 8080). The Dockerfile exposes port 4000 and uses Air for live reloading.
+This starts the server on port specified by `PORT` env var (default 8080). The Dockerfile exposes port 4000 and uses Air for live reloading. When running manually, ensure `REDIS_URL` is set in `apps/server/.env` (e.g., `localhost:6379`).
+
+### Developer Tools
+
+For working with background jobs and the job queue, install the asynq CLI:
+
+```bash
+go install github.com/hibiken/asynq/tools/asynq@latest
+```
+
+This provides the `asynq` command-line tool for inspecting, managing, and debugging Redis queues.
 
 ### Agent web UI (experimental)
 
@@ -75,14 +86,14 @@ apps/
 │   ├── components/ui/    # shadcn UI primitives (button, checkbox, field, input, etc.)
 │   ├── lib/utils.ts      # cn() helper (clsx + tailwind-merge)
 │   └── utils/string.ts   # parseStringToJSON() for tab-separated cookie/storage data
-└── server/               # Go 1.25 + Gin + GORM + Anthropic SDK
-    ├── cmd/main.go       # Entry point: loads env, connects DB + S3, sets up router
+└── server/               # Go 1.25 + Gin + GORM + Anthropic SDK + asynq
+    ├── cmd/main.go       # Entry point: loads env, connects DB + Redis + S3, sets up router
     ├── agent/            # Claude AI integration via Anthropic SDK
     │   ├── agent.go      # Agent setup using Google ADK (experimental)
     │   └── models/       # AnthropicModel wrapper for ADK compatibility
     │       └── anthropic.go # Anthropic SDK client with ADK model interface
     ├── internal/
-    │   ├── config/       # ConnectDB(), ConnectObjectStorage() (global vars: DBClient, S3BasicsBucket)
+    │   ├── config/       # ConnectDB(), ConnectRedis(), ConnectObjectStorage() (global vars: DBClient, RedisClient, S3BasicsBucket)
     │   ├── handlers/
     │   │   ├── d2l/      # D2L handlers: SaveCredentials, GetCoursesAndAssignments, SyncCoursesAndAssignments
     │   │   └── dev/      # Dev handlers: SaveAssignmentFiles (CompleteAssignment WIP)
@@ -102,6 +113,7 @@ apps/
     - `POST /dev/assignment-files` — Upload assignment files to S3 (multipart form data)
     - `POST /dev/complete-assignment` — Submit assignment to Claude AI for completion (currently disabled/WIP)
 - **Server → DB**: GORM with PostgreSQL via pgx driver. Global `config.DBClient` variable initialized via `config.ConnectDB()`. Used across handlers via `config.DBClient.Create()`, `.Query()`, etc.
+- **Server → Redis/asynq**: Asynq job queue (`github.com/hibiken/asynq`) for background task processing. Global `config.RedisClient` (*asynq.Client) initialized via `config.ConnectRedis()` from `REDIS_URL` env var. Enables async task enqueueing and worker-based job execution.
 - **Server → S3**: AWS SDK Go v2 with MinIO (S3-compatible). Global `config.S3BasicsBucket` (BucketBasics struct) initialized via `config.ConnectObjectStorage()` with static credentials. Provides bucket/object operations (CRUD, multipart uploads/downloads, copy, list, exists check, presigned URLs). Connection validates via ListBuckets on startup. Presigned URLs are signed with `MINIO_PUBLIC_URL` (for external access via cloudflared) or `MINIO_URL` (internal).
 - **Server → Claude AI**: Anthropic SDK Go client (`github.com/anthropics/anthropic-sdk-go`) initialized from `ANTHROPIC_API_KEY` env var. `agent/models/anthropic.go` provides an AnthropicModel wrapper that implements the Google ADK model interface for compatibility with agent frameworks. `CompleteAssignment` handler (currently WIP) will generate presigned S3 URLs and send PDFs to Claude for processing.
 - **CORS**: Server reads `FRONTEND_URL` from env to configure allowed origins.
@@ -117,6 +129,7 @@ apps/
     - `PORT` — Server port (default 8080 for manual, Docker exposes 4000)
     - `FRONTEND_URL` — Client origin for CORS (e.g., http://localhost:3000)
     - `DB_URL` — PostgreSQL DSN (e.g., postgres://user:pass@db:5432/jaja)
+    - `REDIS_URL` — Redis endpoint (e.g., redis:6379 in Docker, localhost:6379 for manual runs). **Required** — server fatally exits on startup if unset.
     - `MINIO_URL` — MinIO S3 endpoint (e.g., http://minio:9000)
     - `MINIO_PUBLIC_URL` — Public MinIO S3 endpoint for presigned URLs (e.g., cloudflared tunnel URL). If unset, falls back to `MINIO_URL`.
     - `AWS_REGION` — S3 region (e.g., us-east-1)
@@ -131,6 +144,7 @@ apps/
 - `github.com/anthropics/anthropic-sdk-go` (v1.30.0) — Official Anthropic SDK for Claude AI integration
 - `google.golang.org/adk` — Google Agent Development Kit for building agentic applications
 - `google.golang.org/genai` — Google GenAI abstraction layer
+- `github.com/hibiken/asynq` (v0.26.0) — Job queue and task scheduler backed by Redis
 - `github.com/gin-gonic/gin` — HTTP web framework
 - `gorm.io/gorm` + `gorm.io/driver/postgres` — ORM + PostgreSQL driver
 - `github.com/aws/aws-sdk-go-v2` — AWS SDK for S3/MinIO operations
