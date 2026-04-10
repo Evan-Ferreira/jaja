@@ -30,6 +30,7 @@ func main() {
 
 	defer config.RedisClient.Close()
 	defer config.Worker.Shutdown()
+	defer config.Scheduler.Shutdown()
 
 	router := gin.Default()
 
