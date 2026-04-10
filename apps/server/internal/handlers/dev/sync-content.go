@@ -24,5 +24,5 @@ func UpdateContent(c *gin.Context) {
 
 	client.UpdateContent(context.Background(), testOrgUnitID)
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "org_unit_id": testOrgUnitID})
+	c.JSON(http.StatusOK, gin.H{"success": true})
 }

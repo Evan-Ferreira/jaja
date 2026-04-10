@@ -16,7 +16,7 @@ import (
 func main() {
 
 	err := godotenv.Load()
-	
+
 	if err != nil {
 		log.Fatalf("Error loading .env file")
 	}
@@ -33,14 +33,27 @@ func main() {
 
 	router := gin.Default()
 
-	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{os.Getenv("FRONTEND_URL")}
-	router.Use(cors.New(config))
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		log.Println("WARNING: FRONTEND_URL is not set — CORS will reject all cross-origin requests")
+	}
+
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AllowOrigins = []string{frontendURL}
+	corsConfig.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization"}
+	corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
+	router.Use(cors.New(corsConfig))
 
 	api := router.Group("/")
 	{
 		routes.RegisterD2LRoutes(api)
-		routes.RegisterDevRoutes(api)
+
+		// Only register dev/debug routes in non-release mode.
+		if gin.Mode() != gin.ReleaseMode {
+			routes.RegisterDevRoutes(api)
+		} else {
+			log.Println("Running in release mode — dev routes are disabled")
+		}
 	}
 
 	port := os.Getenv("PORT")

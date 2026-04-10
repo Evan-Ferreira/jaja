@@ -37,7 +37,8 @@ type localStoragePayload struct {
 func SaveCredentials(c *gin.Context) {
 	var req authPayload
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		log.Printf("Failed to bind credentials JSON: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
