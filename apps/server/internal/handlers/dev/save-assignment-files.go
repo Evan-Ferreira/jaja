@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"server/internal/config"
+	"server/internal/storage"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -34,7 +34,7 @@ func SaveAssignmentFiles(c *gin.Context) {
 	
 	defer src.Close()
 
-	_, err = config.S3BasicsBucket.S3Client.PutObject(c.Request.Context(), &s3.PutObjectInput{
+	_, err = storage.S3BasicsBucket.S3Client.PutObject(c.Request.Context(), &s3.PutObjectInput{
 		Bucket: aws.String("test-bucket"),
 		Key:    aws.String(fileName),
 		Body:   src,

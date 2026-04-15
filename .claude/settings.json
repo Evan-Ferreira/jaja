@@ -11,7 +11,8 @@
             "Bash(bun build)",
             "Bash(bunx eslint .)",
             "Bash(docker compose *)",
-            "Read(~/.zshrc)"
+            "Read(~/.zshrc)",
+            "WebFetch(domain:adk.dev)"
         ],
         "deny": ["Read(**/.env)", "Read(**/.env.*)"]
     },

@@ -2,7 +2,7 @@ package dev
 
 import (
 	"net/http"
-	"server/internal/config"
+	"server/internal/storage"
 
 	"github.com/gin-gonic/gin"
 )
@@ -20,7 +20,7 @@ func GeneratePresignedURL(c *gin.Context) {
 		return
 	}
 
-	url, err := config.S3BasicsBucket.GeneratePresignedUrl(c.Request.Context(), req.BucketName, req.FileKey, req.ExpireSeconds)
+	url, err := storage.S3BasicsBucket.GeneratePresignedUrl(c.Request.Context(), req.BucketName, req.FileKey, req.ExpireSeconds)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

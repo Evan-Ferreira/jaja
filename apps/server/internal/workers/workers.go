@@ -3,8 +3,8 @@ package workers
 import (
 	"log"
 
-	"server/internal/config"
 	"server/internal/jobs/handlers"
+	"server/internal/queue"
 
 	"github.com/hibiken/asynq"
 )
@@ -12,7 +12,7 @@ import (
 var Server *asynq.Server
 
 func Connect() {
-	Server = asynq.NewServer(config.RedisOpt, asynq.Config{
+	Server = asynq.NewServer(queue.RedisOpt, asynq.Config{
 		Concurrency: 10,
 	})
 

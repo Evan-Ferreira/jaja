@@ -10,9 +10,10 @@ import (
 	"mime"
 	"net/http"
 	"path/filepath"
+	"server/internal/storage"
 	"sync"
 
-	"server/internal/config"
+	"server/internal/database"
 	"server/internal/models"
 	"server/internal/util"
 
@@ -35,7 +36,7 @@ const (
 
 func NewD2LClient(userID uuid.UUID) (*D2LClient, error) {
 	var session models.D2LLocalStorageSession
-	if result := config.DBClient.Where("user_id = ?", userID).Last(&session); result.Error != nil {
+	if result := database.DBClient.Where("user_id = ?", userID).Last(&session); result.Error != nil {
 		return nil, fmt.Errorf("d2l: no session found for user: %w", result.Error)
 	}
 
@@ -44,7 +45,7 @@ func NewD2LClient(userID uuid.UUID) (*D2LClient, error) {
 	}
 
 	var user models.User
-	if result := config.DBClient.Preload("Org").First(&user, "id = ?", userID); result.Error != nil {
+	if result := database.DBClient.Preload("Org").First(&user, "id = ?", userID); result.Error != nil {
 		return nil, fmt.Errorf("d2l: no user found: %w", result.Error)
 	}
 
@@ -169,7 +170,7 @@ func (c *D2LClient) saveAttachment(ctx context.Context, orgUnitID int, folderID 
 	key := fmt.Sprintf("assignments/%d/%d/%s", orgUnitID, folderID, attachment.FileName)
 
 	//TODO: Change test-bucket to real bucket name and handle bucket creation if it doesn't exist
-	exists, err := config.S3BasicsBucket.ObjectExists(ctx, "test-bucket", key)
+	exists, err := storage.S3BasicsBucket.ObjectExists(ctx, "test-bucket", key)
 	if err != nil {
 		log.Printf("d2l: check attachment %q in S3: %v", key, err)
 		return
@@ -186,7 +187,7 @@ func (c *D2LClient) saveAttachment(ctx context.Context, orgUnitID int, folderID 
 		return
 	}
 
-	if err := config.S3BasicsBucket.UploadLargeObject(ctx, "test-bucket", key, data); err != nil {
+	if err := storage.S3BasicsBucket.UploadLargeObject(ctx, "test-bucket", key, data); err != nil {
 		log.Printf("d2l: upload attachment %q to S3: %v", key, err)
 	}
 }
@@ -237,7 +238,7 @@ func (c *D2LClient) UpdateContent(ctx context.Context, orgUnitID int) {
 			ext := filepath.Ext(filename)
 			key := fmt.Sprintf("content/%d/%d_%s%s", orgUnitID, t.TopicID, util.SanitizeS3Key(t.Title), ext)
 			//TODO: Change test-bucket to real bucket name
-			if err := config.S3BasicsBucket.UploadLargeObject(ctx, "test-bucket", key, data); err != nil {
+			if err := storage.S3BasicsBucket.UploadLargeObject(ctx, "test-bucket", key, data); err != nil {
 				log.Printf("d2l: upload topic %d %q to S3: %v", t.TopicID, t.Title, err)
 				return
 			}
@@ -250,7 +251,7 @@ func (c *D2LClient) UpdateContent(ctx context.Context, orgUnitID int) {
 // updateCourse upserts a single course into the DB and returns the persisted record.
 func (c *D2LClient) updateCourse(orgUUID uuid.UUID, unit d2lOrgUnit) (models.Course, error) {
 	var course models.Course
-	result := config.DBClient.Where("d2l_id = ? AND org_id = ?", unit.ID, orgUUID).First(&course)
+	result := database.DBClient.Where("d2l_id = ? AND org_id = ?", unit.ID, orgUUID).First(&course)
 	if result.Error != nil {
 		course = models.Course{
 			OrgID: orgUUID,
@@ -258,13 +259,13 @@ func (c *D2LClient) updateCourse(orgUUID uuid.UUID, unit d2lOrgUnit) (models.Cou
 			Name:  unit.Name,
 			Code:  unit.Code,
 		}
-		if err := config.DBClient.Create(&course).Error; err != nil {
+		if err := database.DBClient.Create(&course).Error; err != nil {
 			return course, fmt.Errorf("d2l: create course %d: %w", unit.ID, err)
 		}
 	} else {
 		course.Name = unit.Name
 		course.Code = unit.Code
-		if err := config.DBClient.Save(&course).Error; err != nil {
+		if err := database.DBClient.Save(&course).Error; err != nil {
 			return course, fmt.Errorf("d2l: update course %d: %w", unit.ID, err)
 		}
 	}
@@ -290,7 +291,7 @@ func (c *D2LClient) updateAssignments(course models.Course, orgUnitID int) error
 			dueDate := util.ParseISODate(folder.DueDate)
 
 			var assignment models.Assignment
-			result := config.DBClient.Where("d2l_id = ? AND course_id = ?", folder.ID, course.ID).First(&assignment)
+			result := database.DBClient.Where("d2l_id = ? AND course_id = ?", folder.ID, course.ID).First(&assignment)
 			if result.Error != nil {
 				assignment = models.Assignment{
 					CourseID:         course.ID,
@@ -301,7 +302,7 @@ func (c *D2LClient) updateAssignments(course models.Course, orgUnitID int) error
 					ScoreOutOf:       folder.Assessment.ScoreDenominator,
 					IsHidden:         folder.IsHidden,
 				}
-				if err := config.DBClient.Create(&assignment).Error; err != nil {
+				if err := database.DBClient.Create(&assignment).Error; err != nil {
 					log.Printf("d2l: create assignment %d (course %d): %v", folder.ID, course.ID, err)
 				}
 			} else {
@@ -310,7 +311,7 @@ func (c *D2LClient) updateAssignments(course models.Course, orgUnitID int) error
 				assignment.DueDate = dueDate
 				assignment.ScoreOutOf = folder.Assessment.ScoreDenominator
 				assignment.IsHidden = folder.IsHidden
-				if err := config.DBClient.Save(&assignment).Error; err != nil {
+				if err := database.DBClient.Save(&assignment).Error; err != nil {
 					log.Printf("d2l: update assignment %d (course %d): %v", folder.ID, course.ID, err)
 				}
 			}
@@ -375,7 +376,7 @@ func (c *D2LClient) LoadCoursesAndAssignments() ([]Course, error) {
 	}
 
 	var dbCourses []models.Course
-	if err := config.DBClient.Where("org_id = ?", orgUUID).Find(&dbCourses).Error; err != nil {
+	if err := database.DBClient.Where("org_id = ?", orgUUID).Find(&dbCourses).Error; err != nil {
 		return nil, fmt.Errorf("d2l: load courses from db: %w", err)
 	}
 	if len(dbCourses) == 0 {
@@ -388,7 +389,7 @@ func (c *D2LClient) LoadCoursesAndAssignments() ([]Course, error) {
 	}
 
 	var dbAssignments []models.Assignment
-	if err := config.DBClient.Where("course_id IN ? AND is_hidden = false", courseIDs).Find(&dbAssignments).Error; err != nil {
+	if err := database.DBClient.Where("course_id IN ? AND is_hidden = false", courseIDs).Find(&dbAssignments).Error; err != nil {
 		return nil, fmt.Errorf("d2l: load assignments from db: %w", err)
 	}
 
