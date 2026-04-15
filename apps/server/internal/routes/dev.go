@@ -13,5 +13,7 @@ func RegisterDevRoutes(rg *gin.RouterGroup) {
 		routes.POST("/claude", dev.GetClaudeResponse)
 		// routes.POST("/complete-assignment", dev.CompleteAssignment)
 		routes.POST("/update-content", dev.UpdateContent)
+		routes.POST("/presigned-url", dev.GeneratePresignedURL)
+		routes.POST("/run-agent", dev.RunAgent)
 	}
 }

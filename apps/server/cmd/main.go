@@ -7,6 +7,7 @@ import (
 
 	"server/internal/config"
 	"server/internal/routes"
+	"server/internal/workers"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -26,10 +27,10 @@ func main() {
 	config.ConnectRedis()
 	config.ConnectDB()
 	config.ConnectObjectStorage()
-	config.ConnectWorkers()
+	workers.Connect()
 
 	defer config.RedisClient.Close()
-	defer config.Worker.Shutdown()
+	defer workers.Server.Shutdown()
 
 	router := gin.Default()
 
