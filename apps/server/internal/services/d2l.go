@@ -236,7 +236,7 @@ func (c *D2LClient) UpdateContent(ctx context.Context, orgUnitID int) {
 			}
 
 			ext := filepath.Ext(filename)
-			key := fmt.Sprintf("content/%d/%d_%s%s", orgUnitID, t.TopicID, util.SanitizeS3Key(t.Title), ext)
+			key := fmt.Sprintf("content/%d/%d_%s%s", orgUnitID, t.TopicID, storage.SanitizeS3Key(t.Title), ext)
 			//TODO: Change test-bucket to real bucket name
 			if err := storage.S3BasicsBucket.UploadLargeObject(ctx, "test-bucket", key, data); err != nil {
 				log.Printf("d2l: upload topic %d %q to S3: %v", t.TopicID, t.Title, err)

@@ -10,6 +10,8 @@ import (
 	"server/internal/storage"
 	"server/internal/workers"
 
+	"server/agent"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -28,6 +30,7 @@ func main() {
 	queue.ConnectRedis()
 	database.ConnectDB()
 	storage.ConnectObjectStorage()
+	agent.ConnectAgent()
 	workers.Connect()
 
 	defer queue.RedisClient.Close()
