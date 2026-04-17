@@ -1,4 +1,4 @@
-package agent
+package main
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 
 	"server/agent/models"
 
+	"github.com/joho/godotenv"
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/agent/llmagent"
 	"google.golang.org/adk/cmd/launcher"
@@ -15,8 +16,12 @@ import (
 )
 
 // TODO: Change agent boilerplate
-func Run() {
-    ctx := context.Background()
+func main() {
+	if err := godotenv.Load("../.env"); err != nil {
+		log.Fatalf("Error loading .env: %v", err)
+	}
+
+	ctx := context.Background()
 
 	model, err := models.NewAnthropicModel("claude-sonnet-4-20250514")
 

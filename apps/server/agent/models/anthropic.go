@@ -10,7 +10,6 @@ import (
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/anthropics/anthropic-sdk-go/packages/param"
-	"github.com/joho/godotenv"
 	"google.golang.org/adk/model"
 	"google.golang.org/genai"
 )
@@ -31,7 +30,6 @@ var validAnthropicModels = map[anthropic.Model]struct{}{
 	anthropic.ModelClaudeOpus4_20250514:     {},
 	anthropic.ModelClaudeSonnet4_0:          {},
 	anthropic.ModelClaudeSonnet4_20250514:   {},
-	anthropic.ModelClaude_3_Haiku_20240307:  {},
 }
 
 type AnthropicModel struct {
@@ -40,12 +38,6 @@ type AnthropicModel struct {
 }
 
 func NewAnthropicModel(modelName anthropic.Model) (*AnthropicModel, error) {
-	err := godotenv.Load()
-
-	if err != nil {
-		return nil, fmt.Errorf("Failed to load environment variables: %w", err)
-	}
-
 	if _, ok := validAnthropicModels[modelName]; !ok {
 		return nil, fmt.Errorf("Unknown Anthropic model %q: see anthropic.Model constants for valid values", modelName)
 	}
@@ -68,6 +60,10 @@ func (m *AnthropicModel) Name() string {
 }
 
 func (m *AnthropicModel) GenerateContent(ctx context.Context, req *model.LLMRequest, stream bool) iter.Seq2[*model.LLMResponse, error] {
+	if stream {
+		return m.generateStream(ctx, req)
+	}
+
 	return func(yield func(*model.LLMResponse, error) bool) {
 		params, err := buildParams(m.modelName, req)
 		if err != nil {
@@ -85,7 +81,54 @@ func (m *AnthropicModel) GenerateContent(ctx context.Context, req *model.LLMRequ
 	}
 }
 
-// TODO: All of these are boilerplate to convert Gemini Params to Anthropic Params, probably buggy
+// generateStream streams responses from the Anthropic API, yielding text deltas
+// as partial responses and a final complete response with TurnComplete set to true.
+func (m *AnthropicModel) generateStream(ctx context.Context, req *model.LLMRequest) iter.Seq2[*model.LLMResponse, error] {
+	return func(yield func(*model.LLMResponse, error) bool) {
+		params, err := buildParams(m.modelName, req)
+		if err != nil {
+			yield(nil, fmt.Errorf("failed to build Anthropic params: %w", err))
+			return
+		}
+
+		stream := m.client.Messages.NewStreaming(ctx, params)
+		accumulated := anthropic.Message{}
+
+		for stream.Next() {
+			event := stream.Current()
+
+			if err := accumulated.Accumulate(event); err != nil {
+				yield(nil, fmt.Errorf("failed to accumulate stream event: %w", err))
+				return
+			}
+
+			// Yield text deltas as partial responses.
+			if delta, ok := event.AsAny().(anthropic.ContentBlockDeltaEvent); ok {
+				if text, ok := delta.Delta.AsAny().(anthropic.TextDelta); ok {
+					if !yield(&model.LLMResponse{
+						Content: &genai.Content{
+							Role:  "model",
+							Parts: []*genai.Part{{Text: text.Text}},
+						},
+						TurnComplete: false,
+					}, nil) {
+						return
+					}
+				}
+			}
+		}
+
+		if err := stream.Err(); err != nil {
+			yield(nil, fmt.Errorf("stream error: %w", err))
+			return
+		}
+
+		// Yield the final complete response.
+		final := convertResponse(&accumulated)
+		final.TurnComplete = true
+		yield(final, nil)
+	}
+}
 
 // buildParams converts an ADK LLMRequest into Anthropic MessageNewParams.
 func buildParams(modelName string, req *model.LLMRequest) (anthropic.MessageNewParams, error) {
@@ -250,13 +293,15 @@ func convertResponseBlocks(blocks []anthropic.ContentBlockUnion) []*genai.Part {
 }
 
 // convertStopReason maps Anthropic stop reasons to genai FinishReasons.
+// tool_use maps to FinishReasonStop so ADK recognises it as a complete turn
+// and proceeds to execute the requested tool before calling back into the model.
 func convertStopReason(reason anthropic.StopReason) genai.FinishReason {
 	switch reason {
-	case anthropic.StopReasonEndTurn, anthropic.StopReasonStopSequence:
+	case anthropic.StopReasonEndTurn, anthropic.StopReasonStopSequence, anthropic.StopReasonToolUse:
 		return genai.FinishReasonStop
 	case anthropic.StopReasonMaxTokens:
 		return genai.FinishReasonMaxTokens
 	default:
-		return genai.FinishReasonOther
+		return genai.FinishReasonUnspecified
 	}
 }
