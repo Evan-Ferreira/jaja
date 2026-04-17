@@ -1,4 +1,4 @@
-package config
+package storage
 
 import (
 	"context"
@@ -6,15 +6,13 @@ import (
 	"fmt"
 	"os"
 
-	localS3 "server/internal/storage"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	awsconfig "github.com/aws/smithy-go"
 )
 
-var S3BasicsBucket localS3.BucketBasics
+var S3BasicsBucket BucketBasics
 
 func ConnectObjectStorage() {
 	ctx := context.Background()
@@ -52,7 +50,7 @@ func ConnectObjectStorage() {
 
 	s3PresignClient := s3.NewPresignClient(publicS3Client)
 
-	S3BasicsBucket = localS3.BucketBasics{
+	S3BasicsBucket = BucketBasics{
 		S3Client:      s3Client,
 		PresignClient: s3PresignClient,
 	}

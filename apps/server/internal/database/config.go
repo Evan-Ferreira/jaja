@@ -1,4 +1,4 @@
-package config
+package database
 
 import (
 	"log"
@@ -10,7 +10,7 @@ import (
 
 var DBClient *gorm.DB
 
-func ConnectDB(){
+func ConnectDB() {
 	var err error
 	dsn := os.Getenv("DB_URL")
 	DBClient, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
