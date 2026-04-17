@@ -293,8 +293,6 @@ func convertResponseBlocks(blocks []anthropic.ContentBlockUnion) []*genai.Part {
 }
 
 // convertStopReason maps Anthropic stop reasons to genai FinishReasons.
-// tool_use maps to FinishReasonStop so ADK recognises it as a complete turn
-// and proceeds to execute the requested tool before calling back into the model.
 func convertStopReason(reason anthropic.StopReason) genai.FinishReason {
 	switch reason {
 	case anthropic.StopReasonEndTurn, anthropic.StopReasonStopSequence, anthropic.StopReasonToolUse:
