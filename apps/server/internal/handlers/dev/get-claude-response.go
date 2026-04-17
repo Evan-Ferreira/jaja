@@ -1,6 +1,7 @@
 package dev
 
 import (
+	"log"
 	"net/http"
 	"server/internal/services"
 
@@ -10,22 +11,24 @@ import (
 func GetClaudeResponse(c *gin.Context) {
 	claudeService, err := services.New()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		log.Printf("Failed to create Claude service: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to initialize AI service"})
 		return
 	}
 
 	response, err := claudeService.Run(c.Request.Context(), services.ClaudeServiceConfig{
-		Model: "claude-sonnet-4-6",
+		Model:     "claude-sonnet-4-6",
 		MaxTokens: 10000,
 		Messages: []services.AnthropicMessage{
 			{
-				Role: services.AnthropicRoleUser,
+				Role:    services.AnthropicRoleUser,
 				Message: "What is the capital of France?",
 			},
 		},
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		log.Printf("Claude API request failed: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "AI request failed"})
 		return
 	}
 
