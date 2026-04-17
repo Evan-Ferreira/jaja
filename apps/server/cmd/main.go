@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"log"
 	"os"
-
-	"server/internal/config"
+	"server/internal/database"
+	"server/internal/queue"
 	"server/internal/routes"
+	"server/internal/storage"
+	"server/internal/workers"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -23,13 +25,13 @@ func main() {
 
 	log.Println("Successfully loaded environment variables")
 
-	config.ConnectRedis()
-	config.ConnectDB()
-	config.ConnectObjectStorage()
-	config.ConnectWorkers()
+	queue.ConnectRedis()
+	database.ConnectDB()
+	storage.ConnectObjectStorage()
+	workers.Connect()
 
-	defer config.RedisClient.Close()
-	defer config.Worker.Shutdown()
+	defer queue.RedisClient.Close()
+	defer workers.Server.Shutdown()
 
 	router := gin.Default()
 

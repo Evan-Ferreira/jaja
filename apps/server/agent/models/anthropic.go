@@ -1,3 +1,8 @@
+// Package models implements the ADK [model.LLM] interface for Anthropic Claude
+// models. It mirrors google/adk-java's com.google.adk.models.Claude, translating
+// ADK LLMRequests into Anthropic MessageNewParams and back.
+//
+// Streaming and live connections are not currently supported.
 package models
 
 import (
@@ -6,15 +11,18 @@ import (
 	"fmt"
 	"iter"
 	"os"
+	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/anthropics/anthropic-sdk-go/packages/param"
+	"github.com/joho/godotenv"
 	"google.golang.org/adk/model"
 	"google.golang.org/genai"
 )
 
-// set to check valid model names
+const defaultMaxTokens int64 = 8192
+
 var validAnthropicModels = map[anthropic.Model]struct{}{
 	anthropic.ModelClaudeOpus4_6:            {},
 	anthropic.ModelClaudeSonnet4_6:          {},
@@ -32,14 +40,21 @@ var validAnthropicModels = map[anthropic.Model]struct{}{
 	anthropic.ModelClaudeSonnet4_20250514:   {},
 }
 
+// AnthropicModel implements model.LLM using the official Anthropic Go SDK.
 type AnthropicModel struct {
 	client    *anthropic.Client
-	modelName string
+	modelName anthropic.Model
+	maxTokens int64
 }
 
+// NewAnthropicModel builds an AnthropicModel using ANTHROPIC_API_KEY from env.
 func NewAnthropicModel(modelName anthropic.Model) (*AnthropicModel, error) {
+	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("load .env: %w", err)
+	}
+
 	if _, ok := validAnthropicModels[modelName]; !ok {
-		return nil, fmt.Errorf("Unknown Anthropic model %q: see anthropic.Model constants for valid values", modelName)
+		return nil, fmt.Errorf("unknown Anthropic model %q: see anthropic.Model constants for valid values", modelName)
 	}
 
 	apiKey := os.Getenv("ANTHROPIC_API_KEY")
@@ -48,36 +63,17 @@ func NewAnthropicModel(modelName anthropic.Model) (*AnthropicModel, error) {
 	}
 
 	client := anthropic.NewClient(option.WithAPIKey(apiKey))
+	return NewAnthropicModelWithClient(modelName, &client), nil
+}
 
+// NewAnthropicModelWithClient is the Go analogue of Java's
+// `new Claude(modelName, anthropicClient)` — it takes a caller-constructed
+// client so callers can customize transport, base URL, auth, etc.
+func NewAnthropicModelWithClient(modelName anthropic.Model, client *anthropic.Client) *AnthropicModel {
 	return &AnthropicModel{
-		client:    &client,
+		client:    client,
 		modelName: modelName,
-	}, nil
-}
-
-func (m *AnthropicModel) Name() string {
-	return m.modelName
-}
-
-func (m *AnthropicModel) GenerateContent(ctx context.Context, req *model.LLMRequest, stream bool) iter.Seq2[*model.LLMResponse, error] {
-	if stream {
-		return m.generateStream(ctx, req)
-	}
-
-	return func(yield func(*model.LLMResponse, error) bool) {
-		params, err := buildParams(m.modelName, req)
-		if err != nil {
-			yield(nil, fmt.Errorf("failed to build Anthropic params: %w", err))
-			return
-		}
-
-		resp, err := m.client.Messages.New(ctx, params)
-		if err != nil {
-			yield(nil, fmt.Errorf("Anthropic API call failed: %w", err))
-			return
-		}
-
-		yield(convertResponse(resp), nil)
+		maxTokens: defaultMaxTokens,
 	}
 }
 
@@ -130,15 +126,45 @@ func (m *AnthropicModel) generateStream(ctx context.Context, req *model.LLMReque
 	}
 }
 
-// buildParams converts an ADK LLMRequest into Anthropic MessageNewParams.
-func buildParams(modelName string, req *model.LLMRequest) (anthropic.MessageNewParams, error) {
-	params := anthropic.MessageNewParams{
-		Model:     modelName,
-		MaxTokens: 4096,
+// WithMaxTokens overrides the default max output tokens (8192).
+func (m *AnthropicModel) WithMaxTokens(n int64) *AnthropicModel {
+	m.maxTokens = n
+	return m
+}
+
+func (m *AnthropicModel) Name() string { return m.modelName }
+
+// GenerateContent implements model.LLM. The `stream` argument is ignored —
+// streaming is not yet implemented for Claude, matching adk-java behavior.
+func (m *AnthropicModel) GenerateContent(ctx context.Context, req *model.LLMRequest, _ bool, stream bool) iter.Seq2[*model.LLMResponse, error] {
+	if stream {
+		return m.generateStream(ctx, req)
+	}
+	return func(yield func(*model.LLMResponse, error) bool) {
+		params, err := m.buildParams(req)
+		if err != nil {
+			yield(nil, fmt.Errorf("build anthropic params: %w", err))
+			return
+		}
+
+		msg, err := m.client.Messages.New(ctx, params)
+		if err != nil {
+			yield(nil, fmt.Errorf("anthropic messages.new: %w", err))
+			return
+		}
+		yield(convertResponse(msg), nil)
+	}
+}
+
+func (m *AnthropicModel) buildParams(req *model.LLMRequest) (anthropic.MessageNewParams, error) {
+	modelName := m.modelName
+	if req.Model != "" {
+		modelName = req.Model
 	}
 
-	if req.Config != nil && req.Config.SystemInstruction != nil {
-		params.System = convertSystemInstruction(req.Config.SystemInstruction)
+	params := anthropic.MessageNewParams{
+		Model:     modelName,
+		MaxTokens: m.maxTokens,
 	}
 
 	msgs, err := convertMessages(req.Contents)
@@ -147,67 +173,86 @@ func buildParams(modelName string, req *model.LLMRequest) (anthropic.MessageNewP
 	}
 	params.Messages = msgs
 
-	if req.Config != nil {
-		if req.Config.MaxOutputTokens > 0 {
-			params.MaxTokens = int64(req.Config.MaxOutputTokens)
-		}
-		if req.Config.Temperature != nil {
-			params.Temperature = param.NewOpt(float64(*req.Config.Temperature))
-		}
-		if req.Config.TopP != nil {
-			params.TopP = param.NewOpt(float64(*req.Config.TopP))
-		}
-		if req.Config.TopK != nil {
-			params.TopK = param.NewOpt(int64(*req.Config.TopK))
-		}
-		if len(req.Config.StopSequences) > 0 {
-			params.StopSequences = req.Config.StopSequences
+	if req.Config == nil {
+		return params, nil
+	}
+
+	if sys := extractSystemText(req.Config.SystemInstruction); sys != "" {
+		params.System = []anthropic.TextBlockParam{{Text: sys}}
+	}
+
+	if req.Config.MaxOutputTokens > 0 {
+		params.MaxTokens = int64(req.Config.MaxOutputTokens)
+	}
+	if req.Config.Temperature != nil {
+		params.Temperature = param.NewOpt(float64(*req.Config.Temperature))
+	}
+	if req.Config.TopP != nil {
+		params.TopP = param.NewOpt(float64(*req.Config.TopP))
+	}
+	if req.Config.TopK != nil {
+		params.TopK = param.NewOpt(int64(*req.Config.TopK))
+	}
+	if len(req.Config.StopSequences) > 0 {
+		params.StopSequences = req.Config.StopSequences
+	}
+
+	if tools := convertTools(req.Config.Tools); len(tools) > 0 {
+		params.Tools = tools
+		params.ToolChoice = anthropic.ToolChoiceUnionParam{
+			OfAuto: &anthropic.ToolChoiceAutoParam{
+				DisableParallelToolUse: param.NewOpt(true),
+			},
 		}
 	}
 
 	return params, nil
 }
 
-// convertSystemInstruction extracts text parts from a genai.Content into Anthropic system blocks.
-func convertSystemInstruction(content *genai.Content) []anthropic.TextBlockParam {
-	var blocks []anthropic.TextBlockParam
-	for _, part := range content.Parts {
-		if part.Text != "" {
-			blocks = append(blocks, anthropic.TextBlockParam{Text: part.Text})
-		}
+// extractSystemText joins the text parts of a system instruction with newlines,
+// mirroring Java's `parts.filter(text).collect(joining("\n"))`.
+func extractSystemText(content *genai.Content) string {
+	if content == nil {
+		return ""
 	}
-	return blocks
+	var parts []string
+	for _, p := range content.Parts {
+		if p == nil || p.Text == "" {
+			continue
+		}
+		parts = append(parts, p.Text)
+	}
+	return strings.Join(parts, "\n")
 }
 
-// convertMessages converts ADK genai.Content messages to Anthropic MessageParams.
 func convertMessages(contents []*genai.Content) ([]anthropic.MessageParam, error) {
-	var msgs []anthropic.MessageParam
+	msgs := make([]anthropic.MessageParam, 0, len(contents))
 	for _, c := range contents {
 		if c == nil {
 			continue
 		}
 		blocks, err := convertParts(c.Parts)
 		if err != nil {
-			return nil, fmt.Errorf("converting parts for role %q: %w", c.Role, err)
+			return nil, fmt.Errorf("convert parts for role %q: %w", c.Role, err)
 		}
 		if len(blocks) == 0 {
 			continue
 		}
-		role := convertRole(c.Role)
-		msgs = append(msgs, anthropic.MessageParam{Role: role, Content: blocks})
+		msgs = append(msgs, anthropic.MessageParam{
+			Role:    convertRole(c.Role),
+			Content: blocks,
+		})
 	}
 	return msgs, nil
 }
 
-// convertRole maps genai roles to Anthropic roles.
 func convertRole(role string) anthropic.MessageParamRole {
-	if role == "model" {
+	if role == "model" || role == "assistant" {
 		return anthropic.MessageParamRoleAssistant
 	}
 	return anthropic.MessageParamRoleUser
 }
 
-// convertParts converts genai Parts to Anthropic content blocks.
 func convertParts(parts []*genai.Part) ([]anthropic.ContentBlockParamUnion, error) {
 	var blocks []anthropic.ContentBlockParamUnion
 	for _, p := range parts {
@@ -220,23 +265,19 @@ func convertParts(parts []*genai.Part) ([]anthropic.ContentBlockParamUnion, erro
 
 		case p.FunctionCall != nil:
 			fc := p.FunctionCall
-			id := fc.ID
-			if id == "" {
-				id = "call_" + fc.Name
+			args := fc.Args
+			if args == nil {
+				args = map[string]any{}
 			}
-			blocks = append(blocks, anthropic.NewToolUseBlock(id, fc.Args, fc.Name))
+			blocks = append(blocks, anthropic.NewToolUseBlock(fc.ID, args, fc.Name))
 
 		case p.FunctionResponse != nil:
 			fr := p.FunctionResponse
-			id := fr.ID
-			if id == "" {
-				id = "call_" + fr.Name
-			}
-			content, err := json.Marshal(fr.Response)
+			content, err := functionResponseContent(fr.Response)
 			if err != nil {
-				return nil, fmt.Errorf("marshaling function response %q: %w", fr.Name, err)
+				return nil, fmt.Errorf("marshal function response %q: %w", fr.Name, err)
 			}
-			blocks = append(blocks, anthropic.NewToolResultBlock(id, string(content), false))
+			blocks = append(blocks, anthropic.NewToolResultBlock(fr.ID, content, false))
 
 		case p.InlineData != nil:
 			blob := p.InlineData
@@ -251,7 +292,132 @@ func convertParts(parts []*genai.Part) ([]anthropic.ContentBlockParamUnion, erro
 	return blocks, nil
 }
 
-// convertResponse converts an Anthropic Message to an ADK LLMResponse.
+// functionResponseContent mirrors the Java Claude.java behavior: prefer a
+// conventional "result" key, then "output", otherwise serialize the whole map.
+func functionResponseContent(resp map[string]any) (string, error) {
+	if len(resp) == 0 {
+		return "", nil
+	}
+	for _, key := range []string{"result", "output"} {
+		if v, ok := resp[key]; ok {
+			return stringify(v), nil
+		}
+	}
+	b, err := json.Marshal(resp)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+func stringify(v any) string {
+	if s, ok := v.(string); ok {
+		return s
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Sprintf("%v", v)
+	}
+	return string(b)
+}
+
+// convertTools translates genai tool declarations into Anthropic ToolUnionParam
+// values. Only function declarations are forwarded — other genai tool kinds
+// (GoogleSearch, Retrieval, etc.) have no Claude equivalent and are ignored.
+func convertTools(tools []*genai.Tool) []anthropic.ToolUnionParam {
+	var out []anthropic.ToolUnionParam
+	for _, t := range tools {
+		if t == nil {
+			continue
+		}
+		for _, fd := range t.FunctionDeclarations {
+			if fd == nil || fd.Name == "" {
+				continue
+			}
+			tp := anthropic.ToolParam{
+				Name:        fd.Name,
+				InputSchema: buildInputSchema(fd.Parameters),
+			}
+			if fd.Description != "" {
+				tp.Description = param.NewOpt(fd.Description)
+			}
+			out = append(out, anthropic.ToolUnionParam{OfTool: &tp})
+		}
+	}
+	return out
+}
+
+func buildInputSchema(s *genai.Schema) anthropic.ToolInputSchemaParam {
+	schema := anthropic.ToolInputSchemaParam{Properties: map[string]any{}}
+	if s == nil {
+		return schema
+	}
+	if len(s.Properties) > 0 {
+		props := make(map[string]any, len(s.Properties))
+		for k, v := range s.Properties {
+			props[k] = schemaToMap(v)
+		}
+		schema.Properties = props
+	}
+	if len(s.Required) > 0 {
+		schema.Required = s.Required
+	}
+	return schema
+}
+
+// schemaToMap converts a genai.Schema into a JSON Schema-shaped map, normalizing
+// uppercase OpenAPI-style types ("STRING") into the lowercase variants Anthropic
+// expects ("string"). Mirrors Java Claude.updateTypeString, extended to walk the
+// full schema tree.
+func schemaToMap(s *genai.Schema) map[string]any {
+	if s == nil {
+		return nil
+	}
+	out := map[string]any{}
+	if s.Type != "" {
+		out["type"] = strings.ToLower(string(s.Type))
+	}
+	if s.Description != "" {
+		out["description"] = s.Description
+	}
+	if len(s.Enum) > 0 {
+		out["enum"] = s.Enum
+	}
+	if s.Format != "" {
+		out["format"] = s.Format
+	}
+	if s.Default != nil {
+		out["default"] = s.Default
+	}
+	if s.Nullable != nil {
+		out["nullable"] = *s.Nullable
+	}
+	if s.Pattern != "" {
+		out["pattern"] = s.Pattern
+	}
+	if s.Items != nil {
+		out["items"] = schemaToMap(s.Items)
+	}
+	if len(s.Properties) > 0 {
+		props := make(map[string]any, len(s.Properties))
+		for k, v := range s.Properties {
+			props[k] = schemaToMap(v)
+		}
+		out["properties"] = props
+	}
+	if len(s.Required) > 0 {
+		out["required"] = s.Required
+	}
+	if len(s.AnyOf) > 0 {
+		anyOf := make([]any, 0, len(s.AnyOf))
+		for _, sub := range s.AnyOf {
+			anyOf = append(anyOf, schemaToMap(sub))
+		}
+		out["anyOf"] = anyOf
+	}
+	return out
+}
+
 func convertResponse(msg *anthropic.Message) *model.LLMResponse {
 	return &model.LLMResponse{
 		Content: &genai.Content{
@@ -268,7 +434,6 @@ func convertResponse(msg *anthropic.Message) *model.LLMResponse {
 	}
 }
 
-// convertResponseBlocks converts Anthropic content blocks to genai Parts.
 func convertResponseBlocks(blocks []anthropic.ContentBlockUnion) []*genai.Part {
 	var parts []*genai.Part
 	for _, b := range blocks {
@@ -276,7 +441,7 @@ func convertResponseBlocks(blocks []anthropic.ContentBlockUnion) []*genai.Part {
 		case "text":
 			parts = append(parts, &genai.Part{Text: b.Text})
 		case "tool_use":
-			var args map[string]any
+			args := map[string]any{}
 			if len(b.Input) > 0 {
 				_ = json.Unmarshal(b.Input, &args)
 			}
@@ -292,13 +457,17 @@ func convertResponseBlocks(blocks []anthropic.ContentBlockUnion) []*genai.Part {
 	return parts
 }
 
-// convertStopReason maps Anthropic stop reasons to genai FinishReasons.
 func convertStopReason(reason anthropic.StopReason) genai.FinishReason {
 	switch reason {
-	case anthropic.StopReasonEndTurn, anthropic.StopReasonStopSequence, anthropic.StopReasonToolUse:
+	case anthropic.StopReasonEndTurn,
+		anthropic.StopReasonStopSequence,
+		anthropic.StopReasonToolUse,
+		anthropic.StopReasonPauseTurn:
 		return genai.FinishReasonStop
 	case anthropic.StopReasonMaxTokens:
 		return genai.FinishReasonMaxTokens
+	case anthropic.StopReasonRefusal:
+		return genai.FinishReasonSafety
 	default:
 		return genai.FinishReasonUnspecified
 	}

@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"server/internal/config"
+	"server/internal/database"
 	"server/internal/models"
 	"server/seed"
 
@@ -48,14 +48,14 @@ func SaveCookiesAndLocalStorage(c *gin.Context) {
 		PdfjsHistory: req.LocalStorage.PdfjsHistory,
 	}
 
-	result := config.DBClient.Create(&userCookieSession)
+	result := database.DBClient.Create(&userCookieSession)
 	if result.Error != nil {
 		log.Printf("Failed save cookie session to database: %v", result.Error)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed save cookie session to database"})
 		return
 	}
 
-	result = config.DBClient.Create(&userLocalStorageSession)
+	result = database.DBClient.Create(&userLocalStorageSession)
 	if result.Error != nil {
 		log.Printf("Failed save local storage session to database: %v", result.Error)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed save local storage session to database"})
