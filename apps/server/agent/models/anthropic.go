@@ -135,8 +135,7 @@ func (m *AnthropicModel) WithMaxTokens(n int64) *AnthropicModel {
 func (m *AnthropicModel) Name() string { return m.modelName }
 
 // GenerateContent implements model.LLM. The `stream` argument is ignored —
-// streaming is not yet implemented for Claude, matching adk-java behavior.
-func (m *AnthropicModel) GenerateContent(ctx context.Context, req *model.LLMRequest, _ bool, stream bool) iter.Seq2[*model.LLMResponse, error] {
+func (m *AnthropicModel) GenerateContent(ctx context.Context, req *model.LLMRequest, stream bool) iter.Seq2[*model.LLMResponse, error] {
 	if stream {
 		return m.generateStream(ctx, req)
 	}
