@@ -81,7 +81,7 @@ func NewAnthropicModelWithClient(modelName anthropic.Model, client *anthropic.Cl
 // as partial responses and a final complete response with TurnComplete set to true.
 func (m *AnthropicModel) generateStream(ctx context.Context, req *model.LLMRequest) iter.Seq2[*model.LLMResponse, error] {
 	return func(yield func(*model.LLMResponse, error) bool) {
-		params, err := buildParams(m.modelName, req)
+		params, err := m.buildParams(req)
 		if err != nil {
 			yield(nil, fmt.Errorf("failed to build Anthropic params: %w", err))
 			return
