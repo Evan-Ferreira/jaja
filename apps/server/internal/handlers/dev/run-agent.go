@@ -2,6 +2,7 @@ package dev
 
 import (
 	"net/http"
+	"server/agent"
 	agentRunner "server/agent/runner"
 
 	"github.com/gin-gonic/gin"
@@ -31,17 +32,14 @@ func RunAgent(c *gin.Context) {
 		userID = parsed
 	}
 
-	r := &agentRunner.Runner{UserID: userID}
-	if err := r.New(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to initialize agent: " + err.Error()})
-		return
-	}
-
-	response, err := r.Run(c.Request.Context(), agentRunner.RunInput{
+	runInput := agentRunner.RunInput{
 		SessionID: req.SessionID,
 		Prompt:    req.Prompt,
-	})
-	
+		UserID:    userID.String(),
+	}
+
+	response, err := agent.AgentRunner.Run(c.Request.Context(), runInput)
+
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

@@ -1,22 +1,23 @@
 package models
 
 import (
-	"encoding/json"
-	"server/internal/jobs"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type Job struct {
-	ID uuid.UUID `json:"id" gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
-	CreatedAt time.Time `json:"created_at" gorm:"type:timestamptz;default:now()"`
-	UpdatedAt time.Time `json:"updated_at" gorm:"type:timestamptz;default:now()"`
-	Payload json.RawMessage `json:"payload,omitempty" gorm:"type:jsonb"`
-	JobType jobs.JobType `json:"job_type" gorm:"type:text;not null"`
-	Status  jobs.JobStatus  `json:"status" gorm:"type:text;not null"`
-	Result  json.RawMessage `json:"result,omitempty" gorm:"type:jsonb"`
-	Error   string `json:"error,omitempty" gorm:"type:text"`
+	ID            string    `json:"id" gorm:"type:text;primaryKey"`
+	Queue         string    `json:"queue" gorm:"type:text;not null;default:'default'"`
+	Type          string    `json:"type" gorm:"type:text;not null"`
+	Payload       []byte    `json:"payload,omitempty" gorm:"type:jsonb"`
+	State         string    `json:"state" gorm:"type:text;not null"`
+	MaxRetry      int       `json:"max_retry" gorm:"default:25"`
+	Retried       int       `json:"retried" gorm:"default:0"`
+	LastErr       string    `json:"last_err,omitempty" gorm:"type:text"`
+	LastFailedAt  time.Time `json:"last_failed_at,omitempty" gorm:"type:timestamptz"`
+	Result        []byte    `json:"result,omitempty" gorm:"type:bytea"`
+	CompletedAt   time.Time `json:"completed_at,omitempty" gorm:"type:timestamptz"`
+	CreatedAt     time.Time `json:"created_at" gorm:"type:timestamptz;default:now()"`
+	UpdatedAt     time.Time `json:"updated_at" gorm:"type:timestamptz;default:now()"`
 }
 
 func (Job) TableName() string {

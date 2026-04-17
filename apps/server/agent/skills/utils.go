@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -239,16 +238,10 @@ func ListSkillsInDir(basePath string) (map[string]*Frontmatter, error) {
 		skillFileName := entry.Name()
 		fm, err := ReadSkillProperties(filepath.Join(absPath, skillFileName))
 		if err != nil {
-			log.Printf(
-				"skipping invalid skill '%s' in '%s': %v",
-				skillFileName, absPath, err,
-			)
 			continue
 		}
 
-		if existing, ok := result[fm.Name]; ok {
-			log.Printf("duplicate skill name '%s' (dirs: '%s' and '%s'), skipping",
-				fm.Name, existing.Name, skillFileName)
+		if _, ok := result[fm.Name]; ok {
 			continue
 		}
 		

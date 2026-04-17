@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"server/agent/models"
+	"server/agent/tools"
 
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/agent/llmagent"
@@ -11,7 +12,6 @@ import (
 )
 
 func CreateJAJAAgent() (*agent.Agent, error) {
-
 	model, err := models.NewAnthropicModel("claude-sonnet-4-6")
 
     if err != nil {
@@ -24,8 +24,6 @@ func CreateJAJAAgent() (*agent.Agent, error) {
         log.Fatalf("Failed to get tools: %v", err)
         return nil, err
     }
-
-    // 2. Define the agent.
     jaja, err := llmagent.New(llmagent.Config{
         Name:        "jaja_agent",
         Model:       model,
@@ -47,27 +45,14 @@ func CreateJAJAAgent() (*agent.Agent, error) {
     }
 
     return &jaja, nil
-
-    // 3. Configure the launcher and run.
-    // config := &launcher.Config{
-    //     AgentLoader: agent.NewSingleLoader(a),
-    // }
-
-    // l := full.NewLauncher()
-    // if err = l.Execute(ctx, config, os.Args[1:]); err != nil {
-    //     log.Fatalf("Run failed: %v\n\n%s", err, l.CommandLineSyntax())
-    // }
 }
 
 func getTools() ([]tool.Tool, error) {
-    // TODO: uncomment in next PR
-    // return all tools here
-    // docxTool, err := tools.DocxTool()
-    // if err != nil {
-    //     log.Fatalf("Failed to create docx tool: %v", err)
-    //     return nil, err
-    // }
+    docxTool, err := tools.DocxTool()
+    if err != nil {
+        log.Fatalf("Failed to create docx tool: %v", err)
+        return nil, err
+    }
 
-    // return []tool.Tool{docxTool}, nil
-    return []tool.Tool{}, nil
+    return []tool.Tool{docxTool}, nil
 }
