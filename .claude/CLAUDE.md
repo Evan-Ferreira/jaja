@@ -60,16 +60,21 @@ go install github.com/hibiken/asynq/tools/asynq@latest
 
 This provides the `asynq` command-line tool for inspecting, managing, and debugging Redis queues.
 
-### Agent web UI (experimental)
+### Agent runner
 
-To run the experimental Claude AI agent with an interactive web interface:
+The JAJA agent is powered by the Google Agent Development Kit (ADK) and orchestrated by `agent/runner/runner.go`. To invoke the agent programmatically or test it:
 
 ```bash
-cd apps/server/agent
-go run agent.go web webui api
+# Via HTTP endpoint (preferred)
+curl -X POST http://localhost:8080/dev/run-agent \
+  -H "Content-Type: application/json" \
+  -d '{"session_id":"test-session","prompt":"Complete this assignment...","user_id":"..."}'
+
+# Manual Go testing
+go run cmd/main.go  # Server includes agent initialization on startup
 ```
 
-This launches a chat interface where you can interact with the agent directly. The web UI provides debugging information and dev logs for development and testing purposes. This is experimental functionality and currently uses boilerplate setup from Google ADK.
+The agent accepts a prompt (assignment description), processes it with tools (docx generation), and returns the completion result. See `/dev/run-agent` and `/dev/run-claude` endpoints for usage.
 
 ### Database migrations (Goose)
 
@@ -87,36 +92,57 @@ apps/
 │   ├── lib/utils.ts      # cn() helper (clsx + tailwind-merge)
 │   └── utils/string.ts   # parseStringToJSON() for tab-separated cookie/storage data
 └── server/               # Go 1.25 + Gin + GORM + Anthropic SDK + asynq
-    ├── cmd/main.go       # Entry point: loads env, connects DB + Redis + S3 + Workers, sets up router
-    ├── agent/            # Claude AI integration via Anthropic SDK
-    │   ├── agent.go      # Agent setup using Google ADK (experimental)
-    │   └── models/       # AnthropicModel wrapper for ADK compatibility
-    │       └── anthropic.go # Anthropic SDK client with ADK model interface
+    ├── cmd/main.go       # Entry point: loads env, connects DB + Redis + S3 + Agent + Workers, sets up router
+    ├── agent/            # Claude AI agent via Google ADK + Anthropic SDK
+    │   ├── config.go     # ConnectAgent() initializes global AgentRunner
+    │   ├── agents/       # Agent definitions
+    │   │   └── orchestrator.go # CreateJAJAAgent() - named agent with docx tool
+    │   ├── runner/       # Agent execution
+    │   │   └── runner.go # AgentRunner.Run(jobID, userID, assignmentKey) - orchestrates agent, uploads result to S3
+    │   ├── tools/        # ADK tool implementations
+    │   │   └── docx.go   # create_docx tool - generates .docx Word documents using unioffice
+    │   ├── models/       # Model interfaces
+    │   │   └── anthropic.go # AnthropicModel wrapper for ADK compatibility (supports tool conversion, system prompts, max tokens)
+    │   └── skills/       # Agent utilities and prompts
     ├── internal/
-    │   ├── config/       # ConnectDB(), ConnectRedis(), ConnectObjectStorage(), ConnectWorkers() (global vars: DBClient, RedisClient, Worker, S3BasicsBucket)
+    │   ├── config.go     # Global configuration vars (DBClient, RedisClient, S3BasicsBucket, AgentRunner)
+    │   ├── database/     # Database configuration and connection
+    │   │   └── config.go # ConnectDB() - initializes PostgreSQL via GORM
+    │   ├── queue/        # Redis and job queue configuration
+    │   │   └── config.go # ConnectRedis() - initializes Redis for asynq
+    │   ├── storage/      # S3/MinIO configuration and helpers
+    │   │   ├── config.go # ConnectObjectStorage() - initializes AWS SDK v2 + MinIO
+    │   │   └── s3.go     # BucketBasics S3 operations (CRUD, multipart, presigned URLs)
     │   ├── handlers/
     │   │   ├── d2l/      # D2L handlers: SaveCredentials, GetCoursesAndAssignments, SyncCoursesAndAssignments
-    │   │   └── dev/      # Dev handlers: SaveAssignmentFiles (CompleteAssignment WIP)
-    │   ├── models/       # GORM models: User, Org, D2LCookieSession, D2LLocalStorageSession
-    │   ├── storage/      # BucketBasics S3 operations (CRUD, multipart, presigned URLs)
-    │   ├── services/     # Business logic (d2l.go for D2L API client)
-    │   ├── tasks/        # Asynq task handlers (agent.go registers background job processors)
+    │   │   └── dev/      # Dev handlers: SaveAssignmentFiles, GeneratePresignedURL, RunAgent, RunClaude
+    │   ├── models/       # GORM models: User, Org, D2LCookieSession, D2LLocalStorageSession, Job
+    │   ├── jobs/         # Job queue types and handlers
+    │   │   ├── types.go  # JobTypeDocx constant
+    │   │   └── handlers/ # Task processors (HandleDocx, HandleUnknown)
+    │   ├── workers/      # Database-backed job polling and dispatch
+    │   │   └── workers.go # Connect() - starts asynq Server, polls jobs table, dispatches to handlers
+    │   ├── services/     # Business logic
+    │   │   ├── d2l.go    # D2L API client
+    │   │   └── claude.go # Assignment completion via Claude AI
+    │   ├── util/         # Utility functions
+    │   │   ├── job.go    # CreateJob, UpdateJob, GetJob
+    │   │   ├── agent.go  # RunAgent wrapper
+    │   │   └── s3.go     # S3 helpers
     │   └── routes/       # Route registration: RegisterD2LRoutes, RegisterDevRoutes
-    └── migrations/       # Goose SQL migration files
+    └── migrations/       # Goose SQL migration files (includes jobs table schema)
 ```
 
 ### Key patterns
 
 - **Client → Server**: Frontend POSTs to `NEXT_PUBLIC_API_URL` (default `http://localhost:8080` for manual, `http://localhost:4000` in Docker).
-    - `POST /d2l/credentials` — Save D2L cookies & localStorage (form data)
-    - `GET /d2l/courses` — Load user's courses and assignments from D2L
-    - `POST /d2l/sync` — Sync courses and assignments from D2L to database
-    - `POST /dev/assignment-files` — Upload assignment files to S3 (multipart form data)
-    - `POST /dev/complete-assignment` — Submit assignment to Claude AI for completion (currently disabled/WIP)
-- **Server → DB**: GORM with PostgreSQL via pgx driver. Global `config.DBClient` variable initialized via `config.ConnectDB()`. Used across handlers via `config.DBClient.Create()`, `.Query()`, etc.
-- **Server → Redis/asynq**: Asynq job queue (`github.com/hibiken/asynq`) for background task processing. Global `config.RedisClient` (*asynq.Client) and `config.Worker` (*asynq.Server) initialized via `config.ConnectRedis()` and `config.ConnectWorkers()` from `REDIS_URL` env var. Handlers enqueue tasks via `config.RedisClient.Enqueue()`, and the worker processes them via task handlers registered in `internal/tasks/`. Worker runs with concurrency of 10 and automatically starts in `cmd/main.go` on server startup.
-- **Server → S3**: AWS SDK Go v2 with MinIO (S3-compatible). Global `config.S3BasicsBucket` (BucketBasics struct) initialized via `config.ConnectObjectStorage()` with static credentials. Provides bucket/object operations (CRUD, multipart uploads/downloads, copy, list, exists check, presigned URLs). Connection validates via ListBuckets on startup. Presigned URLs are signed with `MINIO_PUBLIC_URL` (for external access via cloudflared) or `MINIO_URL` (internal).
-- **Server → Claude AI**: Anthropic SDK Go client (`github.com/anthropics/anthropic-sdk-go`) initialized from `ANTHROPIC_API_KEY` env var. `agent/models/anthropic.go` provides an AnthropicModel wrapper that implements the Google ADK model interface for compatibility with agent frameworks. `CompleteAssignment` handler (currently WIP) will generate presigned S3 URLs and send PDFs to Claude for processing.
+    - **D2L API** — `POST /d2l/credentials`, `GET /d2l/courses`, `POST /d2l/sync`
+    - **Dev/Agent** — `POST /dev/assignment-files` (upload to S3), `POST /dev/run-agent` (invoke JAJA agent via ADK), `POST /dev/run-claude` (direct Claude call), `GET /dev/presigned-url` (download URLs)
+- **Server → DB**: GORM with PostgreSQL via pgx driver. Global `config.DBClient` initialized via `database.ConnectDB()`. Models include User, Org, D2LCookieSession, D2LLocalStorageSession, and Job (tracks agent job status/results).
+- **Server → Redis/asynq**: Asynq job queue (`github.com/hibiken/asynq`) for background task processing. Global `config.RedisClient` initialized via `queue.ConnectRedis()` from `REDIS_URL` env var. Separate from the jobs table (DB-backed): DB polls jobs table, dispatches to handlers via asynq workers.
+- **Server → Jobs/Workers**: DB-backed job queue (`internal/models/jobs.go` + `internal/workers/workers.go`). Jobs table tracks status (pending/running/done/failed), type, payload, result. `workers.Server` polls pending jobs, dispatches to handlers in `internal/jobs/handlers/` based on job type (currently JobTypeDocx → HandleDocx).
+- **Server → S3**: AWS SDK Go v2 with MinIO (S3-compatible). Global `config.S3BasicsBucket` (BucketBasics struct) initialized via `storage.ConnectObjectStorage()` with static credentials. Helpers in `internal/storage/s3.go` provide CRUD, multipart uploads/downloads, copy, list, exists, presigned URLs. Connection validates via ListBuckets on startup. Presigned URLs signed with `MINIO_PUBLIC_URL` (external via cloudflared) or `MINIO_URL` (internal).
+- **Server → Claude AI Agent**: Anthropic SDK Go client (`github.com/anthropics/anthropic-sdk-go`) initialized from `ANTHROPIC_API_KEY`. `agent/runner/runner.go` runs the JAJA agent (Google ADK): takes assignment key, fetches from S3, runs LLM agent, generates `.docx` via `agent/tools/docx.go` (using unioffice), uploads result to S3, updates DB job status. `agent/agents/orchestrator.go` defines the agent with system prompt and docx tool. `agent/models/anthropic.go` adapts Anthropic SDK to ADK model interface (tool conversion, system prompts, max tokens).
 - **CORS**: Server reads `FRONTEND_URL` from env to configure allowed origins.
 - **shadcn/ui**: Uses Radix Lyra style with Phosphor Icons. Config in `components.json`.
 - **Path aliases**: `@/*` maps to project root in TypeScript.
@@ -152,8 +178,8 @@ apps/
 
 ## Conventions
 
-- Commit messages use conventional commits format (`feat:`, `dev:`, `fix:`)
+- Commit messages use conventional commits format (`feat:`, `dev:`, `fix:`, `refactor:`)
 - PRs require a demo video (Loom), test plan, and deployment steps per the PR template
 - Dockerfiles are development-only (production builds are TODO)
 - The server currently uses a hardcoded test user ID (proper auth is TODO)
-- Agent integration is WIP: `agent.go` contains experimental boilerplate using Google ADK
+- Agent integration is functional: `agent/runner/runner.go` executes the JAJA agent end-to-end (MVP docx generation)

@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -414,4 +415,48 @@ func (basics BucketBasics) GeneratePresignedUrl(ctx context.Context, bucketName 
 	}
 
 	return presigned.URL, nil
+}
+
+var unsafeS3KeyChars = regexp.MustCompile(`[^a-zA-Z0-9\-.]`)
+
+func SanitizeS3Key(s string) string {
+	return unsafeS3KeyChars.ReplaceAllString(s, "_")
+}
+
+type FileToUpload struct {
+	Filename string
+	MimeType string
+	Data     []byte
+}
+
+type SavedFileResult struct {
+	Filename     string
+	MimeType     string
+	PresignedURL string
+}
+
+// SaveFilesToS3 uploads each file under keyPrefix/<sanitized_filename> and returns presigned URLs.
+func (basics BucketBasics) SaveFilesToS3(ctx context.Context, bucket string, keyPrefix string, files []FileToUpload) ([]SavedFileResult, error) {
+	results := make([]SavedFileResult, 0, len(files))
+
+	for _, f := range files {
+		key := fmt.Sprintf("%s/%s", keyPrefix, SanitizeS3Key(f.Filename))
+
+		if err := basics.UploadLargeObject(ctx, bucket, key, f.Data); err != nil {
+			return nil, fmt.Errorf("upload %s: %w", f.Filename, err)
+		}
+
+		url, err := basics.GeneratePresignedUrl(ctx, bucket, key, 0)
+		if err != nil {
+			return nil, fmt.Errorf("presign %s: %w", f.Filename, err)
+		}
+
+		results = append(results, SavedFileResult{
+			Filename:     f.Filename,
+			MimeType:     f.MimeType,
+			PresignedURL: url,
+		})
+	}
+
+	return results, nil
 }

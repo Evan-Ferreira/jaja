@@ -1,6 +1,6 @@
 # jaja
 
-JAJA: Just Automate Junk Assignments — a web app for saving D2L (Desire2Learn) cookies and local storage to a database, with Claude AI integration for assignment completion. Monorepo with a Next.js frontend and Go backend, backed by PostgreSQL and MinIO (S3-compatible object storage).
+JAJA: Just Automate Junk Assignments — a web app for saving D2L (Desire2Learn) cookies and local storage to a database, with Claude AI agent integration for academic assignment completion. Monorepo with a Next.js frontend and Go backend, backed by PostgreSQL, MinIO (S3-compatible object storage), Redis (job queue), and Anthropic Claude AI (via Google Agent Development Kit).
 
 ## Prerequisites
 
@@ -66,16 +66,19 @@ Copy the example files and fill in your values:
 - `GET /d2l/courses` — Load user's courses and assignments from D2L
 - `POST /d2l/sync` — Sync courses and assignments from D2L to database
 
-### Dev (Development/Testing)
+### Agent & Assignment Completion
 
-- `POST /dev/assignment-files` — Upload assignment files (instructions/rubric) to S3 storage
-- `POST /dev/complete-assignment` — Submit assignment to Claude AI for completion (WIP)
+- `POST /dev/assignment-files` — Upload assignment files (PDF, instructions, rubric) to S3 storage
+- `POST /dev/run-agent` — Invoke the JAJA agent to analyze and complete an assignment (generates `.docx` Word document)
+- `POST /dev/run-claude` — Direct Claude API call for assignment completion (non-agent path)
+- `GET /dev/presigned-url` — Generate presigned S3 URLs for downloading assignment files and results
 
 ## Tech Stack
 
 - **Frontend**: Next.js 16 (App Router), React 19, Tailwind CSS 4, shadcn/ui, TypeScript
-- **Backend**: Go 1.25, Gin, GORM, asynq (job queue)
-- **Database**: PostgreSQL
-- **Job Queue**: Redis + asynq
-- **Object Storage**: MinIO (S3-compatible)
-- **AI**: Anthropic Claude API, Google Agent Development Kit (experimental)
+- **Backend**: Go 1.25, Gin, GORM, asynq (Redis-backed job queue), Google ADK (agent framework)
+- **Database**: PostgreSQL (schema managed by GORM + Goose migrations)
+- **Job Queue**: Redis + asynq (asynq workers) + DB jobs table (polling-based job dispatch)
+- **Object Storage**: MinIO (S3-compatible, AWS SDK Go v2)
+- **AI**: Anthropic Claude API (via `anthropic-sdk-go`), Google Agent Development Kit (ADK) for orchestration
+- **Document Generation**: unioffice (Go library for `.docx` Word document creation)
