@@ -38,7 +38,6 @@ var validAnthropicModels = map[anthropic.Model]struct{}{
 	anthropic.ModelClaudeOpus4_20250514:     {},
 	anthropic.ModelClaudeSonnet4_0:          {},
 	anthropic.ModelClaudeSonnet4_20250514:   {},
-	anthropic.ModelClaude_3_Haiku_20240307:  {},
 }
 
 // AnthropicModel implements model.LLM using the official Anthropic Go SDK.
@@ -78,6 +77,55 @@ func NewAnthropicModelWithClient(modelName anthropic.Model, client *anthropic.Cl
 	}
 }
 
+// generateStream streams responses from the Anthropic API, yielding text deltas
+// as partial responses and a final complete response with TurnComplete set to true.
+func (m *AnthropicModel) generateStream(ctx context.Context, req *model.LLMRequest) iter.Seq2[*model.LLMResponse, error] {
+	return func(yield func(*model.LLMResponse, error) bool) {
+		params, err := m.buildParams(req)
+		if err != nil {
+			yield(nil, fmt.Errorf("failed to build Anthropic params: %w", err))
+			return
+		}
+
+		stream := m.client.Messages.NewStreaming(ctx, params)
+		accumulated := anthropic.Message{}
+
+		for stream.Next() {
+			event := stream.Current()
+
+			if err := accumulated.Accumulate(event); err != nil {
+				yield(nil, fmt.Errorf("failed to accumulate stream event: %w", err))
+				return
+			}
+
+			// Yield text deltas as partial responses.
+			if delta, ok := event.AsAny().(anthropic.ContentBlockDeltaEvent); ok {
+				if text, ok := delta.Delta.AsAny().(anthropic.TextDelta); ok {
+					if !yield(&model.LLMResponse{
+						Content: &genai.Content{
+							Role:  "model",
+							Parts: []*genai.Part{{Text: text.Text}},
+						},
+						TurnComplete: false,
+					}, nil) {
+						return
+					}
+				}
+			}
+		}
+
+		if err := stream.Err(); err != nil {
+			yield(nil, fmt.Errorf("stream error: %w", err))
+			return
+		}
+
+		// Yield the final complete response.
+		final := convertResponse(&accumulated)
+		final.TurnComplete = true
+		yield(final, nil)
+	}
+}
+
 // WithMaxTokens overrides the default max output tokens (8192).
 func (m *AnthropicModel) WithMaxTokens(n int64) *AnthropicModel {
 	m.maxTokens = n
@@ -87,8 +135,10 @@ func (m *AnthropicModel) WithMaxTokens(n int64) *AnthropicModel {
 func (m *AnthropicModel) Name() string { return m.modelName }
 
 // GenerateContent implements model.LLM. The `stream` argument is ignored —
-// streaming is not yet implemented for Claude, matching adk-java behavior.
-func (m *AnthropicModel) GenerateContent(ctx context.Context, req *model.LLMRequest, _ bool) iter.Seq2[*model.LLMResponse, error] {
+func (m *AnthropicModel) GenerateContent(ctx context.Context, req *model.LLMRequest, stream bool) iter.Seq2[*model.LLMResponse, error] {
+	if stream {
+		return m.generateStream(ctx, req)
+	}
 	return func(yield func(*model.LLMResponse, error) bool) {
 		params, err := m.buildParams(req)
 		if err != nil {
@@ -418,6 +468,6 @@ func convertStopReason(reason anthropic.StopReason) genai.FinishReason {
 	case anthropic.StopReasonRefusal:
 		return genai.FinishReasonSafety
 	default:
-		return genai.FinishReasonOther
+		return genai.FinishReasonUnspecified
 	}
 }
