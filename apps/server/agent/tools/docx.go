@@ -5,10 +5,22 @@ import (
 	"fmt"
 	"server/internal/jobs"
 	"server/internal/util"
+	"sync"
 
 	"google.golang.org/adk/tool"
 	"google.golang.org/adk/tool/functiontool"
 )
+
+var pendingJobIDs sync.Map
+
+// ClaimJobID retrieves and removes the jobID registered for a given funcCallID.
+func ClaimJobID(funcCallID string) (string, bool) {
+	val, ok := pendingJobIDs.LoadAndDelete(funcCallID)
+	if !ok {
+		return "", false
+	}
+	return val.(string), true
+}
 
 type CreateDocxAsyncArgs struct {
 	AssignmentName     string   `json:"assignment_name"`
@@ -54,5 +66,6 @@ func CreateDocxAsync(ctx tool.Context, args CreateDocxAsyncArgs) (any, error) {
 		return nil, fmt.Errorf("failed to enqueue job: %w", err)
 	}
 
+	pendingJobIDs.Store(ctx.FunctionCallID(), taskID)
 	return &CreateDocxAsyncResults{TaskID: taskID, FunctionCallID: ctx.FunctionCallID(), State: "pending"}, nil
 }

@@ -31,6 +31,7 @@ func main() {
 	database.ConnectDB()
 	storage.ConnectObjectStorage()
 	agent.ConnectAgent()
+	agent.ConnectOrchestratedAgent()
 	workers.Connect()
 
 	defer queue.RedisClient.Close()

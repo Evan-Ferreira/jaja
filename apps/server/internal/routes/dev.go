@@ -15,6 +15,7 @@ func RegisterDevRoutes(rg *gin.RouterGroup) {
 		routes.POST("/update-content", dev.UpdateContent)
 		routes.POST("/presigned-url", dev.GeneratePresignedURL)
 		routes.POST("/run-agent", dev.RunAgent)
+		routes.POST("/run-orchestrated-agent", dev.RunOrchestratedAgent)
 		routes.POST("/run-claude", dev.RunClaude)
 	}
 }

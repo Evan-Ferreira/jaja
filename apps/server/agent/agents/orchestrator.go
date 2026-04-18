@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"fmt"
 	"log"
 
 	"server/agent/models"
@@ -10,6 +11,38 @@ import (
 	"google.golang.org/adk/agent/llmagent"
 	"google.golang.org/adk/tool"
 )
+
+func CreateOrchestratorAgent() (*agent.Agent, error) {
+	model, err := models.NewAnthropicModel("claude-sonnet-4-6")
+	if err != nil {
+		return nil, fmt.Errorf("create model: %w", err)
+	}
+
+	docxCfg, err := createDocxAgent()
+	if err != nil {
+		return nil, fmt.Errorf("create docx agent: %w", err)
+	}
+	docxAgent, err := llmagent.New(docxCfg)
+	if err != nil {
+		return nil, fmt.Errorf("build docx agent: %w", err)
+	}
+
+	orchestrator, err := llmagent.New(llmagent.Config{
+		Name:        "jaja_orchestrator",
+		Model:       model,
+		Description: "Routes academic assignment tasks to specialist agents.",
+		Instruction: `You are the JAJA orchestrator. Analyze the incoming assignment request and delegate to the appropriate specialist agent:
+            - docx_agent: for any task that requires producing a Word document (.docx) submission.
+
+            Do not attempt to complete the assignment yourself. Always delegate.`,
+		SubAgents: []agent.Agent{docxAgent},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("build orchestrator: %w", err)
+	}
+
+	return &orchestrator, nil
+}
 
 func CreateJAJAAgent() (*agent.Agent, error) {
 	model, err := models.NewAnthropicModel("claude-sonnet-4-6")
