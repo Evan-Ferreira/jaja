@@ -1,71 +1,81 @@
 package tools
 
 import (
-	"encoding/json"
 	"fmt"
-	"server/internal/jobs"
-	"server/internal/util"
-	"sync"
+
+	"github.com/anthropics/anthropic-sdk-go"
+	"server/internal/services"
+	"server/internal/storage"
 
 	"google.golang.org/adk/tool"
 	"google.golang.org/adk/tool/functiontool"
 )
 
-var pendingJobIDs sync.Map
-
-// ClaimJobID retrieves and removes the jobID registered for a given funcCallID.
-func ClaimJobID(funcCallID string) (string, bool) {
-	val, ok := pendingJobIDs.LoadAndDelete(funcCallID)
-	if !ok {
-		return "", false
-	}
-	return val.(string), true
-}
-
-type CreateDocxAsyncArgs struct {
+type CreateDocxArgs struct {
 	AssignmentName     string   `json:"assignment_name"`
 	AssignmentFileURLs []string `json:"assignment_file_urls"`
 	Prompt             string   `json:"prompt"`
 }
 
-type docxJobPayload struct {
-	CreateDocxAsyncArgs
-	FunctionCallID string `json:"function_call_id"`
-	UserID         string `json:"user_id"`
-	SessionID      string `json:"session_id"`
-}
-
-type CreateDocxAsyncResults struct {
-	TaskID         string `json:"task_id"`
-	FunctionCallID string `json:"function_call_id"`
-	State          string `json:"state"`
+type CreateDocxResult struct {
+	Files  []storage.SavedFileResult `json:"files"`
+	Status string                    `json:"status"`
 }
 
 func DocxTool() (tool.Tool, error) {
 	return functiontool.New(functiontool.Config{
 		Name:        "create_docx",
-		Description: "Use this tool to create, read, edit, and manipulate Word documents (.docx files).",
-	}, CreateDocxAsync)
+		Description: "Generate a Word document (.docx) for an academic assignment. Returns download URLs for the generated files.",
+	}, CreateDocx)
 }
 
-func CreateDocxAsync(ctx tool.Context, args CreateDocxAsyncArgs) (any, error) {
-	jobPayload := docxJobPayload{
-		CreateDocxAsyncArgs: args,
-		FunctionCallID:      ctx.FunctionCallID(),
-		UserID:              ctx.UserID(),
-		SessionID:           ctx.SessionID(),
-	}
-
-	payload, err := json.Marshal(jobPayload)
+func CreateDocx(ctx tool.Context, args CreateDocxArgs) (*CreateDocxResult, error) {
+	svc, err := services.New()
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal arguments: %w", err)
+		return nil, fmt.Errorf("create service: %w", err)
 	}
 
-	taskID, err := util.EnqueueJob(jobs.JobTypeDocx, payload)
+	docs := make([]services.PresignedDocument, len(args.AssignmentFileURLs))
+	for i, url := range args.AssignmentFileURLs {
+		docs[i] = services.PresignedDocument{URL: url, Type: services.InferDocumentType(url)}
+	}
+
+	response, err := svc.Run(ctx, services.ClaudeServiceConfig{
+		Model:     "claude-sonnet-4-6",
+		MaxTokens: 20000,
+		Messages: []services.AnthropicMessage{{
+			Role:    services.AnthropicRoleUser,
+			Message: args.Prompt,
+		}},
+		Skills: &[]anthropic.BetaSkillParams{{
+			SkillID: "docx",
+			Type:    anthropic.BetaSkillParamsTypeAnthropic,
+			Version: anthropic.String("latest"),
+		}},
+		Documents: docs,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to enqueue job: %w", err)
+		return nil, fmt.Errorf("run claude: %w", err)
 	}
 
-	pendingJobIDs.Store(ctx.FunctionCallID(), taskID)
-	return &CreateDocxAsyncResults{TaskID: taskID, FunctionCallID: ctx.FunctionCallID(), State: "pending"}, nil
+	files, err := svc.GetFilesFromResponse(ctx, response)
+	if err != nil {
+		return nil, fmt.Errorf("get files: %w", err)
+	}
+	if len(files) == 0 {
+		return nil, fmt.Errorf("no files generated")
+	}
+
+	toUpload := make([]storage.FileToUpload, len(files))
+	for i, f := range files {
+		toUpload[i] = storage.FileToUpload{Filename: f.Filename, MimeType: f.MimeType, Data: f.Data}
+	}
+
+	keyPrefix := fmt.Sprintf("agent_outputs/%s/%s", ctx.UserID(), ctx.FunctionCallID())
+	saved, err := storage.S3BasicsBucket.SaveFilesToS3(ctx, "test-bucket", keyPrefix, toUpload)
+	if err != nil {
+		return nil, fmt.Errorf("save to s3: %w", err)
+	}
+
+	return &CreateDocxResult{Files: saved, Status: "completed"}, nil
 }

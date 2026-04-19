@@ -30,9 +30,6 @@ func ConnectObjectStorage() {
 	})
 
 	presignEndpoint := os.Getenv("MINIO_PUBLIC_URL")
-	if presignEndpoint == "" {
-		presignEndpoint = os.Getenv("MINIO_URL")
-	}
 
 	// Use a separate client pointed at the public URL (if set) so presigned URLs
 	// are signed with a host that external services (e.g. Anthropic) can reach.

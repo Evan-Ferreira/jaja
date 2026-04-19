@@ -58,6 +58,29 @@ Copy the example files and fill in your values:
 - **Server** `apps/server/.env` — Go server (`PORT`, `FRONTEND_URL`, `DB_URL`, `REDIS_URL`, `MINIO_URL`, `MINIO_PUBLIC_URL`, `AWS_REGION`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `ANTHROPIC_API_KEY`)
 - **Client** `apps/client/.env` — Next.js (`NEXT_PUBLIC_API_URL`)
 
+### ADK Web UI (`apps/server/`)
+
+The ADK Web UI lets you interactively chat with and debug the JAJA agents (orchestrator, analysis, docx) in a browser.
+
+**Prerequisites:** MinIO must be running and reachable. Set up a local override file so the agent can reach MinIO at `localhost` instead of the Docker hostname:
+
+```bash
+# apps/server/.env.local  (gitignored — create once, not committed)
+MINIO_URL=http://localhost:9000
+MINIO_PUBLIC_URL=https://<your-cloudflared-tunnel-url>  # tunnel to localhost:9000
+```
+
+**Run:**
+
+```bash
+cd apps/server
+go run cmd/agent/main.go web webui api
+```
+
+Open http://localhost:8080 in your browser. Use the agent dropdown to switch between `jaja_orchestrator`, `analysis_agent`, and `docx_agent`.
+
+> `MINIO_PUBLIC_URL` must be set to a publicly accessible URL (e.g. a Cloudflare tunnel) so that presigned S3 URLs are reachable by Claude AI.
+
 ## API Endpoints
 
 ### D2L Integration
