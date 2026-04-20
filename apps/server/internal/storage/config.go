@@ -12,6 +12,10 @@ import (
 	awsconfig "github.com/aws/smithy-go"
 )
 
+// DefaultBucketName is the bucket ensured on startup and used throughout the
+// app. Kept as a constant so it can be swapped later (e.g. per-env or per-org).
+const DefaultBucketName = "test-bucket"
+
 var S3BasicsBucket BucketBasics
 
 func ConnectObjectStorage() {
@@ -80,4 +84,27 @@ func ConnectObjectStorage() {
 
 		fmt.Printf("Listed %v buckets successfully\n", count)
 	}
+
+	ensureDefaultBucket(ctx)
+}
+
+// ensureDefaultBucket makes sure DefaultBucketName exists so downstream code
+// paths (uploads, presigned URLs) don't fail on a fresh MinIO volume. Any
+// failure is logged but does not abort startup.
+func ensureDefaultBucket(ctx context.Context) {
+	exists, err := S3BasicsBucket.BucketExists(ctx, DefaultBucketName)
+	if err != nil {
+		fmt.Printf("Failed to check if bucket %q exists: %v\n", DefaultBucketName, err)
+		return
+	}
+	if exists {
+		fmt.Printf("Bucket %q already exists, skipping creation.\n", DefaultBucketName)
+		return
+	}
+	region := os.Getenv("AWS_REGION")
+	if err := S3BasicsBucket.CreateBucket(ctx, DefaultBucketName, region); err != nil {
+		fmt.Printf("Failed to create bucket %q in region %q: %v\n", DefaultBucketName, region, err)
+		return
+	}
+	fmt.Printf("Created bucket %q in region %q.\n", DefaultBucketName, region)
 }
