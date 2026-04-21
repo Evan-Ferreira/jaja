@@ -39,7 +39,7 @@ func HandleDocx(ctx context.Context, task *asynq.Task) error {
 
 	job := models.Job{
 		ID:      taskID,
-		Queue:   queueName,
+		Queue:   models.Queue(queueName),
 		Type:    task.Type(),
 		Payload: task.Payload(),
 		State:   "active",
