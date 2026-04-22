@@ -3,7 +3,6 @@ package dev
 import (
 	"net/http"
 	"server/agent"
-	agentRunner "server/agent/runner"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -32,14 +31,7 @@ func RunAgent(c *gin.Context) {
 		userID = parsed
 	}
 
-	runInput := agentRunner.RunInput{
-		SessionID: req.SessionID,
-		Prompt:    req.Prompt,
-		UserID:    userID.String(),
-	}
-
-	response, err := agent.AgentRunner.Run(c.Request.Context(), runInput)
-
+	response, err := agent.Run(c.Request.Context(), req.SessionID, userID.String(), req.Prompt)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
