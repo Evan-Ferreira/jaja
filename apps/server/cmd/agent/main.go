@@ -20,10 +20,6 @@ func main() {
 			break
 		}
 	}
-	// .env.local overrides (e.g. localhost URLs instead of Docker hostnames)
-	for _, f := range []string{".env.local", "../.env.local"} {
-		_ = godotenv.Overload(f)
-	}
 
 	storage.ConnectObjectStorage()
 
