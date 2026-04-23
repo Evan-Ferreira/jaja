@@ -74,7 +74,7 @@ func New() (*ClaudeService, error){
 	client, err := newClient()
 
 	if err != nil {
-		return nil, fmt.Errorf(err.Error())
+		return nil, err
 	}
 
 	return &ClaudeService{
@@ -133,7 +133,7 @@ func (claudeService *ClaudeService) Run(ctx context.Context, config ClaudeServic
 	response, err := claudeService.Client.Beta.Messages.New(ctx, params)
 
 	if err != nil {
-		return nil, fmt.Errorf(fmt.Sprintf("Error getting Claude response: %s", err.Error()))
+		return nil, fmt.Errorf("claude response: %w", err)
 	}
 
 	return response, nil

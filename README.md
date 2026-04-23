@@ -58,6 +58,40 @@ Copy the example files and fill in your values:
 - **Server** `apps/server/.env` — Go server (`PORT`, `FRONTEND_URL`, `DB_URL`, `REDIS_URL`, `MINIO_URL`, `MINIO_PUBLIC_URL`, `AWS_REGION`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `ANTHROPIC_API_KEY`)
 - **Client** `apps/client/.env` — Next.js (`NEXT_PUBLIC_API_URL`)
 
+### ADK Agent Dev Tools (`apps/server/`)
+
+`cmd/agent/main.go` is a standalone dev entrypoint for interacting with the JAJA agents outside of Docker. It supports two modes.
+
+```bash
+# apps/server/.env.local
+MINIO_URL=http://localhost:9000
+```
+
+#### Console mode (terminal)
+
+Runs an interactive chat session with the agent directly in your terminal — no browser needed.
+
+```bash
+cd apps/server
+go run cmd/agent/main.go console
+```
+Can also be run by executing agent.exe
+
+Type your prompt and press Enter. The agent responds inline. `Ctrl+C` to exit.
+
+#### Web UI mode (browser)
+
+Starts a local server with a browser UI for chatting with and debugging the agents.
+
+```bash
+cd apps/server
+go run cmd/agent/main.go web webui api
+```
+
+Open http://localhost:8080. Use the agent dropdown to switch between `jaja_orchestrator`, `analysis_agent`, and `docx_agent`.
+
+> `MINIO_PUBLIC_URL` in `apps/server/.env` must be a publicly accessible URL (e.g. a Cloudflare tunnel to `localhost:9000`) so presigned S3 URLs are reachable by Claude AI.
+
 ## API Endpoints
 
 ### D2L Integration

@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/smithy-go"
+	"golang.org/x/sync/errgroup"
 )
 
 // BucketBasics encapsulates the Amazon Simple Storage Service (Amazon S3) actions
@@ -435,28 +436,25 @@ type SavedFileResult struct {
 	PresignedURL string
 }
 
-// SaveFilesToS3 uploads each file under keyPrefix/<sanitized_filename> and returns presigned URLs.
+// SaveFilesToS3 uploads files concurrently under keyPrefix/<sanitized_filename> and returns presigned URLs.
 func (basics BucketBasics) SaveFilesToS3(ctx context.Context, bucket string, keyPrefix string, files []FileToUpload) ([]SavedFileResult, error) {
-	results := make([]SavedFileResult, 0, len(files))
+	results := make([]SavedFileResult, len(files))
+	g, ctx := errgroup.WithContext(ctx)
 
-	for _, f := range files {
-		key := fmt.Sprintf("%s/%s", keyPrefix, SanitizeS3Key(f.Filename))
-
-		if err := basics.UploadLargeObject(ctx, bucket, key, f.Data); err != nil {
-			return nil, fmt.Errorf("upload %s: %w", f.Filename, err)
-		}
-
-		url, err := basics.GeneratePresignedUrl(ctx, bucket, key, 0)
-		if err != nil {
-			return nil, fmt.Errorf("presign %s: %w", f.Filename, err)
-		}
-
-		results = append(results, SavedFileResult{
-			Filename:     f.Filename,
-			MimeType:     f.MimeType,
-			PresignedURL: url,
+	for i, f := range files {
+		g.Go(func() error {
+			key := fmt.Sprintf("%s/%s", keyPrefix, SanitizeS3Key(f.Filename))
+			if err := basics.UploadLargeObject(ctx, bucket, key, f.Data); err != nil {
+				return fmt.Errorf("upload %s: %w", f.Filename, err)
+			}
+			url, err := basics.GeneratePresignedUrl(ctx, bucket, key, 0)
+			if err != nil {
+				return fmt.Errorf("presign %s: %w", f.Filename, err)
+			}
+			results[i] = SavedFileResult{Filename: f.Filename, MimeType: f.MimeType, PresignedURL: url}
+			return nil
 		})
 	}
 
-	return results, nil
+	return results, g.Wait()
 }

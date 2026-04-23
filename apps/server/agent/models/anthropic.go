@@ -283,9 +283,13 @@ func convertParts(parts []*genai.Part) ([]anthropic.ContentBlockParamUnion, erro
 			blocks = append(blocks, anthropic.NewImageBlockBase64(blob.MIMEType, string(blob.Data)))
 
 		case p.FileData != nil:
-			blocks = append(blocks, anthropic.NewTextBlock(
-				fmt.Sprintf("[file: %s (%s)]", p.FileData.FileURI, p.FileData.MIMEType),
-			))
+			fd := p.FileData
+			switch {
+			case strings.HasPrefix(fd.MIMEType, "image/"):
+				blocks = append(blocks, anthropic.NewImageBlock(anthropic.URLImageSourceParam{URL: fd.FileURI}))
+			default:
+				blocks = append(blocks, anthropic.NewDocumentBlock(anthropic.URLPDFSourceParam{URL: fd.FileURI}))
+			}
 		}
 	}
 	return blocks, nil
@@ -335,7 +339,7 @@ func convertTools(tools []*genai.Tool) []anthropic.ToolUnionParam {
 			}
 			tp := anthropic.ToolParam{
 				Name:        fd.Name,
-				InputSchema: buildInputSchema(fd.Parameters),
+				InputSchema: buildInputSchemaForDecl(fd.Parameters, fd.ParametersJsonSchema),
 			}
 			if fd.Description != "" {
 				tp.Description = param.NewOpt(fd.Description)
@@ -344,6 +348,39 @@ func convertTools(tools []*genai.Tool) []anthropic.ToolUnionParam {
 		}
 	}
 	return out
+}
+
+// buildInputSchemaForDecl prefers the structured genai.Schema; falls back to the
+// raw ParametersJsonSchema that functiontool.New() populates instead.
+func buildInputSchemaForDecl(s *genai.Schema, raw any) anthropic.ToolInputSchemaParam {
+	if s != nil {
+		return buildInputSchema(s)
+	}
+	if raw == nil {
+		return anthropic.ToolInputSchemaParam{Properties: map[string]any{}}
+	}
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return anthropic.ToolInputSchemaParam{Properties: map[string]any{}}
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		return anthropic.ToolInputSchemaParam{Properties: map[string]any{}}
+	}
+	schema := anthropic.ToolInputSchemaParam{Properties: map[string]any{}}
+	if props, ok := m["properties"]; ok {
+		schema.Properties = props
+	}
+	if req, ok := m["required"].([]any); ok {
+		required := make([]string, 0, len(req))
+		for _, r := range req {
+			if str, ok := r.(string); ok {
+				required = append(required, str)
+			}
+		}
+		schema.Required = required
+	}
+	return schema
 }
 
 func buildInputSchema(s *genai.Schema) anthropic.ToolInputSchemaParam {
