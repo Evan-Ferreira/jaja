@@ -3,7 +3,7 @@ package tools
 import (
 	"fmt"
 
-	"server/internal/services"
+	anthropicModels "server/agent/models"
 	"server/internal/storage"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -31,22 +31,22 @@ func DocxTool() (tool.Tool, error) {
 }
 
 func CreateDocx(ctx tool.Context, args CreateDocxArgs) (*CreateDocxResult, error) {
-	claudeService, err := services.New()
+	claudeService, err := anthropicModels.New(anthropic.ModelClaudeSonnet4_6)
 	if err != nil {
 		return nil, fmt.Errorf("create service: %w", err)
 	}
 
-	docs := make([]services.PresignedDocument, len(args.AssignmentFileURLs))
+	docs := make([]anthropicModels.PresignedDocument, len(args.AssignmentFileURLs))
 	for i, url := range args.AssignmentFileURLs {
-		docs[i] = services.PresignedDocument{URL: url, Type: services.InferDocumentType(url)}
+		docs[i] = anthropicModels.PresignedDocument{URL: url, Type: anthropicModels.InferDocumentType(url)}
 	}
 
-	response, err := claudeService.Run(ctx, services.ClaudeServiceConfig{
-		Model: "claude-sonnet-4-6",
+	response, err := claudeService.Run(ctx, anthropicModels.AnthropicServiceConfig{
+		Model: anthropic.ModelClaudeSonnet4_6,
 		//TODO: make this adjustable
 		MaxTokens: 20000,
-		Messages: []services.AnthropicMessage{{
-			Role:    services.AnthropicRoleUser,
+		Messages: []anthropicModels.AnthropicMessage{{
+			Role:    anthropicModels.AnthropicRoleUser,
 			Message: args.Prompt,
 		}},
 		Skills: &[]anthropic.BetaSkillParams{{

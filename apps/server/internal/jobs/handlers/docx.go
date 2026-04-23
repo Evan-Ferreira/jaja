@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"server/internal/database"
-	"server/internal/models"
-	"server/internal/services"
 	"server/internal/storage"
 	"server/internal/util"
+
+	anthropicModels "server/agent/models"
+	internalModels "server/internal/models"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/hibiken/asynq"
@@ -37,9 +38,9 @@ func HandleDocx(ctx context.Context, task *asynq.Task) error {
 		queueName = "default"
 	}
 
-	job := models.Job{
+	job := internalModels.Job{
 		ID:      taskID,
-		Queue:   models.Queue(queueName),
+		Queue:   internalModels.Queue(queueName),
 		Type:    task.Type(),
 		Payload: task.Payload(),
 		State:   "active",
@@ -53,26 +54,26 @@ func HandleDocx(ctx context.Context, task *asynq.Task) error {
 		return fmt.Errorf("error upserting job state: %w", err)
 	}
 
-	claudeService, err := services.New()
+	claudeService, err := anthropicModels.New(anthropic.ModelClaudeSonnet4_6)
 	if err != nil {
 		util.FailJob(taskID, err)
 		return fmt.Errorf("error creating Claude service: %w", err)
 	}
 
-	docs := make([]services.PresignedDocument, 0, len(payload.AssignmentFileURLs))
+	docs := make([]anthropicModels.PresignedDocument, 0, len(payload.AssignmentFileURLs))
 	for _, url := range payload.AssignmentFileURLs {
-		docs = append(docs, services.PresignedDocument{
+		docs = append(docs, anthropicModels.PresignedDocument{
 			URL:  url,
-			Type: services.InferDocumentType(url),
+			Type: anthropicModels.InferDocumentType(url),
 		})
 	}
 
-	response, err := claudeService.Run(ctx, services.ClaudeServiceConfig{
-		Model:     "claude-sonnet-4-6",
+	response, err := claudeService.Run(ctx, anthropicModels.AnthropicServiceConfig{
+		Model:     anthropic.ModelClaudeSonnet4_6,
 		MaxTokens: 20000,
-		Messages: []services.AnthropicMessage{
+		Messages: []anthropicModels.AnthropicMessage{
 			{
-				Role:    services.AnthropicRoleUser,
+				Role:    anthropicModels.AnthropicRoleUser,
 				Message: payload.Prompt,
 			},
 		},
@@ -131,7 +132,7 @@ func HandleDocx(ctx context.Context, task *asynq.Task) error {
 		return fmt.Errorf("failed to write task result: %w", err)
 	}
 
-	database.DBClient.Model(&models.Job{}).Where("id = ?", taskID).
+	database.DBClient.Model(&internalModels.Job{}).Where("id = ?", taskID).
 		Updates(map[string]any{"state": "completed", "result": res})
 
 	fmt.Printf("[docx] completed task_id=%s\n", taskID)
