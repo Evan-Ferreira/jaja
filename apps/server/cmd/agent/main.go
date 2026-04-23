@@ -15,10 +15,8 @@ import (
 )
 
 func main() {
-	for _, f := range []string{".env", "../.env"} {
-		if err := godotenv.Load(f); err == nil {
-			break
-		}
+	if err := godotenv.Load(".env"); err != nil {
+		log.Fatalf("Failed to load .env: %v", err)
 	}
 
 	storage.ConnectObjectStorage()

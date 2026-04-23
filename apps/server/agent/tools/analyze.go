@@ -3,8 +3,9 @@ package tools
 import (
 	"fmt"
 
-	"github.com/anthropics/anthropic-sdk-go"
 	"server/internal/services"
+
+	"github.com/anthropics/anthropic-sdk-go"
 
 	"google.golang.org/adk/tool"
 	"google.golang.org/adk/tool/functiontool"
@@ -27,7 +28,7 @@ func AnalyzeTool() (tool.Tool, error) {
 }
 
 func AnalyzeAssignment(ctx tool.Context, args AnalyzeAssignmentArgs) (*AnalysisResult, error) {
-	svc, err := services.New()
+	claudeService, err := services.New()
 	if err != nil {
 		return nil, fmt.Errorf("create service: %w", err)
 	}
@@ -53,8 +54,10 @@ func AnalyzeAssignment(ctx tool.Context, args AnalyzeAssignmentArgs) (*AnalysisR
 
 Be thorough — this analysis will be used to write the full assignment.`))
 
-	response, err := svc.Run(ctx, services.ClaudeServiceConfig{
-		Model:     anthropic.ModelClaudeHaiku4_5_20251001,
+	response, err := claudeService.Run(ctx, services.ClaudeServiceConfig{
+		Model: anthropic.ModelClaudeHaiku4_5_20251001,
+
+		//TODO: Make adjustable later
 		MaxTokens: 2048,
 		Messages: []services.AnthropicMessage{{
 			Role:          services.AnthropicRoleUser,

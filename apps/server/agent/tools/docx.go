@@ -3,9 +3,10 @@ package tools
 import (
 	"fmt"
 
-	"github.com/anthropics/anthropic-sdk-go"
 	"server/internal/services"
 	"server/internal/storage"
+
+	"github.com/anthropics/anthropic-sdk-go"
 
 	"google.golang.org/adk/tool"
 	"google.golang.org/adk/tool/functiontool"
@@ -30,7 +31,7 @@ func DocxTool() (tool.Tool, error) {
 }
 
 func CreateDocx(ctx tool.Context, args CreateDocxArgs) (*CreateDocxResult, error) {
-	svc, err := services.New()
+	claudeService, err := services.New()
 	if err != nil {
 		return nil, fmt.Errorf("create service: %w", err)
 	}
@@ -40,8 +41,9 @@ func CreateDocx(ctx tool.Context, args CreateDocxArgs) (*CreateDocxResult, error
 		docs[i] = services.PresignedDocument{URL: url, Type: services.InferDocumentType(url)}
 	}
 
-	response, err := svc.Run(ctx, services.ClaudeServiceConfig{
-		Model:     "claude-sonnet-4-6",
+	response, err := claudeService.Run(ctx, services.ClaudeServiceConfig{
+		Model: "claude-sonnet-4-6",
+		//TODO: make this adjustable
 		MaxTokens: 20000,
 		Messages: []services.AnthropicMessage{{
 			Role:    services.AnthropicRoleUser,
@@ -58,7 +60,7 @@ func CreateDocx(ctx tool.Context, args CreateDocxArgs) (*CreateDocxResult, error
 		return nil, fmt.Errorf("run claude: %w", err)
 	}
 
-	files, err := svc.GetFilesFromResponse(ctx, response)
+	files, err := claudeService.GetFilesFromResponse(ctx, response)
 	if err != nil {
 		return nil, fmt.Errorf("get files: %w", err)
 	}
