@@ -11,8 +11,12 @@ JAJA: Just Automate Junk Assignments — a web app for saving D2L (Desire2Learn)
 ## Quick Start (Docker)
 
 ```bash
+# Terminal 1: Start Docker services
 cp .env.example .env
 docker compose up
+
+# Terminal 2: Start the frontend
+cd apps/client && bun dev
 ```
 
 | Service       | URL                   |
@@ -23,6 +27,8 @@ docker compose up
 | Redis         | localhost:6379        |
 | MinIO API     | http://localhost:9000 |
 | MinIO Console | http://localhost:9001 |
+
+**Note:** The frontend must be started separately with `bun dev` in a second terminal. Docker Compose only starts the backend services (db, redis, minio, server).
 
 ## Setup
 
