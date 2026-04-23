@@ -80,7 +80,7 @@ curl -X POST http://localhost:8080/dev/run-agent \
 go run cmd/main.go  # Server includes agent initialization on startup
 ```
 
-The agent accepts a prompt (assignment description), processes it with tools (docx generation), and returns the completion result. See `/dev/run-agent` and `/dev/run-claude` endpoints for usage.
+The agent accepts a prompt (assignment description), processes it with tools (docx generation), and returns the completion result. See `/dev/run-agent` endpoint for usage.
 
 ### Database migrations (Goose)
 
@@ -108,7 +108,7 @@ apps/
     │   ├── tools/        # ADK tool implementations
     │   │   └── docx.go   # create_docx tool - generates .docx Word documents using unioffice
     │   ├── models/       # Model interfaces
-    │   │   └── anthropic.go # AnthropicModel wrapper for ADK compatibility (supports tool conversion, system prompts, max tokens)
+    │   │   └── anthropic.go # AnthropicModel — unified Anthropic client: ADK LLM interface + direct Beta Messages API (tools, skills, file download, document blocks)
     │   └── skills/       # Agent utilities and prompts
     ├── internal/
     │   ├── config.go     # Global configuration vars (DBClient, RedisClient, S3BasicsBucket, AgentRunner)
@@ -121,7 +121,7 @@ apps/
     │   │   └── s3.go     # BucketBasics S3 operations (CRUD, multipart, presigned URLs)
     │   ├── handlers/
     │   │   ├── d2l/      # D2L handlers: SaveCredentials, GetCoursesAndAssignments, SyncCoursesAndAssignments
-    │   │   └── dev/      # Dev handlers: SaveAssignmentFiles, GeneratePresignedURL, RunAgent, RunClaude
+    │   │   └── dev/      # Dev handlers: SaveAssignmentFiles, GeneratePresignedURL, RunAgent
     │   ├── models/       # GORM models: User, Org, D2LCookieSession, D2LLocalStorageSession, Job
     │   ├── jobs/         # Job queue types and handlers
     │   │   ├── types.go  # JobTypeDocx constant
@@ -129,8 +129,7 @@ apps/
     │   ├── workers/      # Database-backed job polling and dispatch
     │   │   └── workers.go # Connect() - starts asynq Server, polls jobs table, dispatches to handlers
     │   ├── services/     # Business logic
-    │   │   ├── d2l.go    # D2L API client
-    │   │   └── claude.go # Assignment completion via Claude AI
+    │   │   └── d2l.go    # D2L API client
     │   ├── util/         # Utility functions
     │   │   ├── job.go    # CreateJob, UpdateJob, GetJob
     │   │   ├── agent.go  # RunAgent wrapper
@@ -143,7 +142,7 @@ apps/
 
 - **Client → Server**: Frontend POSTs to `NEXT_PUBLIC_API_URL` (default `http://localhost:8080` for manual, `http://localhost:4000` in Docker).
     - **D2L API** — `POST /d2l/credentials`, `GET /d2l/courses`, `POST /d2l/sync`
-    - **Dev/Agent** — `POST /dev/assignment-files` (upload to S3), `POST /dev/run-agent` (invoke JAJA agent via ADK), `POST /dev/run-claude` (direct Claude call), `GET /dev/presigned-url` (download URLs)
+    - **Dev/Agent** — `POST /dev/assignment-files` (upload to S3), `POST /dev/run-agent` (invoke JAJA agent via ADK), `GET /dev/presigned-url` (download URLs)
 - **Server → DB**: GORM with PostgreSQL via pgx driver. Global `config.DBClient` initialized via `database.ConnectDB()`. Models include User, Org, D2LCookieSession, D2LLocalStorageSession, and Job (tracks agent job status/results).
 - **Server → Redis/asynq**: Asynq job queue (`github.com/hibiken/asynq`) for background task processing. Global `config.RedisClient` initialized via `queue.ConnectRedis()` from `REDIS_URL` env var. Separate from the jobs table (DB-backed): DB polls jobs table, dispatches to handlers via asynq workers.
 - **Server → Jobs/Workers**: DB-backed job queue (`internal/models/jobs.go` + `internal/workers/workers.go`). Jobs table tracks status (pending/running/done/failed), type, payload, result. `workers.Server` polls pending jobs, dispatches to handlers in `internal/jobs/handlers/` based on job type (currently JobTypeDocx → HandleDocx).

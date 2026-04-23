@@ -9,52 +9,70 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"iter"
 	"os"
 	"strings"
 
-	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
-	"github.com/anthropics/anthropic-sdk-go/packages/param"
 	"github.com/joho/godotenv"
+
+	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/packages/param"
 	"google.golang.org/adk/model"
 	"google.golang.org/genai"
 )
 
-const defaultMaxTokens int64 = 8192
-
-var validAnthropicModels = map[anthropic.Model]struct{}{
-	anthropic.ModelClaudeOpus4_6:            {},
-	anthropic.ModelClaudeSonnet4_6:          {},
-	anthropic.ModelClaudeHaiku4_5:           {},
-	anthropic.ModelClaudeHaiku4_5_20251001:  {},
-	anthropic.ModelClaudeOpus4_5:            {},
-	anthropic.ModelClaudeOpus4_5_20251101:   {},
-	anthropic.ModelClaudeSonnet4_5:          {},
-	anthropic.ModelClaudeSonnet4_5_20250929: {},
-	anthropic.ModelClaudeOpus4_1:            {},
-	anthropic.ModelClaudeOpus4_1_20250805:   {},
-	anthropic.ModelClaudeOpus4_0:            {},
-	anthropic.ModelClaudeOpus4_20250514:     {},
-	anthropic.ModelClaudeSonnet4_0:          {},
-	anthropic.ModelClaudeSonnet4_20250514:   {},
-}
-
-// AnthropicModel implements model.LLM using the official Anthropic Go SDK.
 type AnthropicModel struct {
-	client    *anthropic.Client
-	modelName anthropic.Model
-	maxTokens int64
+	Client    *anthropic.Client
+	ModelName anthropic.Model
+	MaxTokens int64
 }
 
-// NewAnthropicModel builds an AnthropicModel using ANTHROPIC_API_KEY from env.
-func NewAnthropicModel(modelName anthropic.Model) (*AnthropicModel, error) {
+const DefaultMaxTokens int64 = 8192
+
+type AnthropicMessageRole string
+
+const (
+	AnthropicRoleUser      AnthropicMessageRole = "user"
+	AnthropicRoleAssistant AnthropicMessageRole = "assistant"
+)
+
+type AnthropicMessage struct {
+	Role          AnthropicMessageRole
+	Message       string
+	ContentBlocks []anthropic.BetaContentBlockParamUnion
+}
+
+type DocumentType string
+
+const (
+	DocumentTypePDF  DocumentType = "application/pdf"
+	DocumentTypePNG  DocumentType = "image/png"
+	DocumentTypeJPEG DocumentType = "image/jpeg"
+	DocumentTypeWebP DocumentType = "image/webp"
+	DocumentTypeGIF  DocumentType = "image/gif"
+)
+
+type PresignedDocument struct {
+	URL  string
+	Type DocumentType
+}
+
+
+type AnthropicServiceConfig struct {
+	Model     anthropic.Model
+	MaxTokens int64
+	Messages  []AnthropicMessage
+	Documents []PresignedDocument
+	Tools     *[]anthropic.BetaToolUnionParam
+	Betas     *[]anthropic.AnthropicBeta
+	Skills    *[]anthropic.BetaSkillParams
+}
+
+func New(modelName anthropic.Model) (*AnthropicModel, error) {
 	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("load .env: %w", err)
-	}
-
-	if _, ok := validAnthropicModels[modelName]; !ok {
-		return nil, fmt.Errorf("unknown Anthropic model %q: see anthropic.Model constants for valid values", modelName)
 	}
 
 	apiKey := os.Getenv("ANTHROPIC_API_KEY")
@@ -63,31 +81,211 @@ func NewAnthropicModel(modelName anthropic.Model) (*AnthropicModel, error) {
 	}
 
 	client := anthropic.NewClient(option.WithAPIKey(apiKey))
-	return NewAnthropicModelWithClient(modelName, &client), nil
+	return &AnthropicModel{
+		Client:    &client,
+		ModelName: modelName,
+		MaxTokens: DefaultMaxTokens,
+	},nil
 }
 
-// NewAnthropicModelWithClient is the Go analogue of Java's
-// `new Claude(modelName, anthropicClient)` — it takes a caller-constructed
-// client so callers can customize transport, base URL, auth, etc.
-func NewAnthropicModelWithClient(modelName anthropic.Model, client *anthropic.Client) *AnthropicModel {
-	return &AnthropicModel{
-		client:    client,
-		modelName: modelName,
-		maxTokens: defaultMaxTokens,
+func (anthropicModel *AnthropicModel) Run(ctx context.Context, config AnthropicServiceConfig) (*anthropic.BetaMessage, error) {
+	messages, err := anthropicModel.parseMessagesParam(config.Messages)
+	if err != nil {
+		return nil, err
 	}
+
+	params := anthropic.BetaMessageNewParams{
+		Model:     config.Model,
+		MaxTokens: config.MaxTokens,
+		Messages:  messages,
+	}
+
+	if config.Skills != nil {
+		params.Container = anthropic.BetaMessageNewParamsContainerUnion{
+			OfContainers: &anthropic.BetaContainerParams{
+				Skills: *config.Skills,
+			},
+		}
+		// in order to use skills, we must add the following betas
+		params.Betas = append(params.Betas,
+			anthropic.AnthropicBetaSkills2025_10_02,
+			anthropic.AnthropicBeta("code-execution-2025-08-25"),
+			anthropic.AnthropicBetaFilesAPI2025_04_14,
+		)
+		// in order to use the skills, we must add code execution as tool
+		params.Tools = append(params.Tools, anthropic.BetaToolUnionParam{
+			OfCodeExecutionTool20250825: &anthropic.BetaCodeExecutionTool20250825Param{},
+		})
+	}
+
+	if config.Tools != nil {
+		params.Tools = append(params.Tools, *config.Tools...)
+	}
+
+	if config.Documents != nil {
+		docBlocks, err := buildDocumentBlocks(config.Documents)
+		if err != nil {
+			return nil, fmt.Errorf("error building document blocks: %w", err)
+		}
+		params.Messages = append(params.Messages, anthropic.BetaMessageParam{
+			Role:    anthropic.BetaMessageParamRoleUser,
+			Content: docBlocks,
+		})
+	}
+	if config.Betas != nil {
+		params.Betas = *config.Betas
+	}
+
+	response, err := anthropicModel.Client.Beta.Messages.New(ctx, params)
+
+	if err != nil {
+		return nil, fmt.Errorf("claude response: %w", err)
+	}
+
+	return response, nil
+}
+
+func (anthropicModel *AnthropicModel) parseMessagesParam(messages []AnthropicMessage) ([]anthropic.BetaMessageParam, error) {
+	res := make([]anthropic.BetaMessageParam, 0, len(messages))
+
+	for _, m := range messages {
+		var role anthropic.BetaMessageParamRole
+		switch m.Role {
+		case AnthropicRoleUser:
+			role = anthropic.BetaMessageParamRoleUser
+		case AnthropicRoleAssistant:
+			role = anthropic.BetaMessageParamRoleAssistant
+		default:
+			return nil, fmt.Errorf("unknown message role: %q", m.Role)
+		}
+
+		content := m.ContentBlocks
+		if m.Message != "" {
+			content = append(content, anthropic.NewBetaTextBlock(m.Message))
+		}
+
+		res = append(res, anthropic.BetaMessageParam{Role: role, Content: content})
+	}
+
+	return res, nil
+}
+
+type DownloadedFile struct {
+	Filename string
+	MimeType string
+	Data     []byte
+}
+
+func (anthropicModel *AnthropicModel) GetFilesFromResponse(ctx context.Context, response *anthropic.BetaMessage) ([]DownloadedFile, error) {
+	fileIds := ExtractFileIDs(response)
+	files, err := anthropicModel.DownloadFiles(ctx, fileIds)
+	if err != nil {
+		return nil, err
+	}
+	return files, nil
+}
+
+func ExtractFileIDs(response *anthropic.BetaMessage) []string {
+	var fileIDs []string
+	for _, item := range response.Content {
+		switch variant := item.AsAny().(type) {
+		case anthropic.BetaBashCodeExecutionToolResultBlock:
+			for _, file := range variant.Content.Content {
+				if file.FileID != "" {
+					fileIDs = append(fileIDs, file.FileID)
+				}
+			}
+		case anthropic.BetaContainerUploadBlock:
+			if variant.FileID != "" {
+				fileIDs = append(fileIDs, variant.FileID)
+			}
+		}
+	}
+	return fileIDs
+}
+
+func (anthropicModel *AnthropicModel) DownloadFiles(ctx context.Context, fileIDs []string) ([]DownloadedFile, error) {
+	filesBeta := []anthropic.AnthropicBeta{anthropic.AnthropicBetaFilesAPI2025_04_14}
+	var files []DownloadedFile
+
+	for _, fid := range fileIDs {
+		metadata, err := anthropicModel.Client.Beta.Files.GetMetadata(ctx, fid, anthropic.BetaFileGetMetadataParams{
+			Betas: filesBeta,
+		})
+
+		if err != nil {
+			return nil, fmt.Errorf("get metadata for file %s: %w", fid, err)
+		}
+
+		resp, err := anthropicModel.Client.Beta.Files.Download(ctx, fid, anthropic.BetaFileDownloadParams{
+			Betas: filesBeta,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("download file %s: %w", fid, err)
+		}
+
+		data, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("read file %s body: %w", fid, err)
+		}
+
+		files = append(files, DownloadedFile{
+			Filename: metadata.Filename,
+			MimeType: metadata.MimeType,
+			Data:     data,
+		})
+	}
+	return files, nil
+}
+
+func InferDocumentType(rawURL string) DocumentType {
+	path := rawURL
+	if i := strings.Index(rawURL, "?"); i >= 0 {
+		path = rawURL[:i]
+	}
+	path = strings.ToLower(path)
+	switch {
+		case strings.HasSuffix(path, ".png"):
+			return DocumentTypePNG
+		case strings.HasSuffix(path, ".jpg"), strings.HasSuffix(path, ".jpeg"):
+			return DocumentTypeJPEG
+		case strings.HasSuffix(path, ".webp"):
+			return DocumentTypeWebP
+		case strings.HasSuffix(path, ".gif"):
+			return DocumentTypeGIF
+		default:
+			return DocumentTypePDF
+	}
+}
+// converts a list of presigned URLs to the appropriate
+// claude content blocks (BetaDocumentBlock for PDFs, BetaImageBlock for images).
+func buildDocumentBlocks(docs []PresignedDocument) ([]anthropic.BetaContentBlockParamUnion, error) {
+	blocks := make([]anthropic.BetaContentBlockParamUnion, 0, len(docs))
+	for _, doc := range docs {
+		switch doc.Type {
+		case DocumentTypePDF:
+			blocks = append(blocks, anthropic.NewBetaDocumentBlock(anthropic.BetaURLPDFSourceParam{URL: doc.URL}))
+		case DocumentTypePNG, DocumentTypeJPEG, DocumentTypeWebP, DocumentTypeGIF:
+			blocks = append(blocks, anthropic.NewBetaImageBlock(anthropic.BetaURLImageSourceParam{URL: doc.URL}))
+		default:
+			return nil, fmt.Errorf("unsupported document type: %q", doc.Type)
+		}
+	}
+	return blocks, nil
 }
 
 // generateStream streams responses from the Anthropic API, yielding text deltas
 // as partial responses and a final complete response with TurnComplete set to true.
-func (m *AnthropicModel) generateStream(ctx context.Context, req *model.LLMRequest) iter.Seq2[*model.LLMResponse, error] {
+func (anthropicModel *AnthropicModel) generateStream(ctx context.Context, req *model.LLMRequest) iter.Seq2[*model.LLMResponse, error] {
 	return func(yield func(*model.LLMResponse, error) bool) {
-		params, err := m.buildParams(req)
+		params, err := anthropicModel.buildParams(req)
 		if err != nil {
 			yield(nil, fmt.Errorf("failed to build Anthropic params: %w", err))
 			return
 		}
 
-		stream := m.client.Messages.NewStreaming(ctx, params)
+		stream := anthropicModel.Client.Messages.NewStreaming(ctx, params)
 		accumulated := anthropic.Message{}
 
 		for stream.Next() {
@@ -126,27 +324,21 @@ func (m *AnthropicModel) generateStream(ctx context.Context, req *model.LLMReque
 	}
 }
 
-// WithMaxTokens overrides the default max output tokens (8192).
-func (m *AnthropicModel) WithMaxTokens(n int64) *AnthropicModel {
-	m.maxTokens = n
-	return m
-}
-
-func (m *AnthropicModel) Name() string { return m.modelName }
+func (anthropicModel *AnthropicModel) Name() string { return anthropicModel.ModelName }
 
 // GenerateContent implements model.LLM. The `stream` argument is ignored —
-func (m *AnthropicModel) GenerateContent(ctx context.Context, req *model.LLMRequest, stream bool) iter.Seq2[*model.LLMResponse, error] {
+func (anthropicModel *AnthropicModel) GenerateContent(ctx context.Context, req *model.LLMRequest, stream bool) iter.Seq2[*model.LLMResponse, error] {
 	if stream {
-		return m.generateStream(ctx, req)
+		return anthropicModel.generateStream(ctx, req)
 	}
 	return func(yield func(*model.LLMResponse, error) bool) {
-		params, err := m.buildParams(req)
+		params, err := anthropicModel.buildParams(req)
 		if err != nil {
 			yield(nil, fmt.Errorf("build anthropic params: %w", err))
 			return
 		}
 
-		msg, err := m.client.Messages.New(ctx, params)
+		msg, err := anthropicModel.Client.Messages.New(ctx, params)
 		if err != nil {
 			yield(nil, fmt.Errorf("anthropic messages.new: %w", err))
 			return
@@ -155,15 +347,15 @@ func (m *AnthropicModel) GenerateContent(ctx context.Context, req *model.LLMRequ
 	}
 }
 
-func (m *AnthropicModel) buildParams(req *model.LLMRequest) (anthropic.MessageNewParams, error) {
-	modelName := m.modelName
+func (anthropicModel *AnthropicModel) buildParams(req *model.LLMRequest) (anthropic.MessageNewParams, error) {
+	modelName := anthropicModel.ModelName
 	if req.Model != "" {
 		modelName = req.Model
 	}
 
 	params := anthropic.MessageNewParams{
 		Model:     modelName,
-		MaxTokens: m.maxTokens,
+		MaxTokens: anthropicModel.MaxTokens,
 	}
 
 	msgs, err := convertMessages(req.Contents)

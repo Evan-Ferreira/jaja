@@ -6,13 +6,14 @@ import (
 	"server/agent/models"
 	"server/agent/tools"
 
+	"github.com/anthropics/anthropic-sdk-go"
 	"google.golang.org/adk/agent"
 	"google.golang.org/adk/agent/llmagent"
 	"google.golang.org/adk/tool"
 )
 
 func NewDocxAgent() (agent.Agent, error) {
-	model, err := models.NewAnthropicModel("claude-sonnet-4-6")
+	model, err := models.New(anthropic.ModelClaudeSonnet4_6)
 	if err != nil {
 		return nil, fmt.Errorf("create model: %w", err)
 	}

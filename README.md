@@ -110,7 +110,6 @@ Open http://localhost:8080. Use the agent dropdown to switch between `jaja_orche
 
 - `POST /dev/assignment-files` — Upload assignment files (PDF, instructions, rubric) to S3 storage
 - `POST /dev/run-agent` — Invoke the JAJA agent to analyze and complete an assignment (generates `.docx` Word document)
-- `POST /dev/run-claude` — Direct Claude API call for assignment completion (non-agent path)
 - `GET /dev/presigned-url` — Generate presigned S3 URLs for downloading assignment files and results
 
 ## Tech Stack

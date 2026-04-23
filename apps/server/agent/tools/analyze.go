@@ -3,7 +3,7 @@ package tools
 import (
 	"fmt"
 
-	"server/internal/services"
+	anthropicModels "server/agent/models"
 
 	"github.com/anthropics/anthropic-sdk-go"
 
@@ -28,7 +28,7 @@ func AnalyzeTool() (tool.Tool, error) {
 }
 
 func AnalyzeAssignment(ctx tool.Context, args AnalyzeAssignmentArgs) (*AnalysisResult, error) {
-	claudeService, err := services.New()
+	claudeService, err := anthropicModels.New(anthropic.ModelClaudeHaiku4_5_20251001)
 	if err != nil {
 		return nil, fmt.Errorf("create service: %w", err)
 	}
@@ -36,8 +36,8 @@ func AnalyzeAssignment(ctx tool.Context, args AnalyzeAssignmentArgs) (*AnalysisR
 	// Documents first, instruction text last — all in one user message.
 	blocks := make([]anthropic.BetaContentBlockParamUnion, 0, len(args.AssignmentFileURLs)+1)
 	for _, url := range args.AssignmentFileURLs {
-		switch services.InferDocumentType(url) {
-		case services.DocumentTypePDF:
+		switch anthropicModels.InferDocumentType(url) {
+		case anthropicModels.DocumentTypePDF:
 			blocks = append(blocks, anthropic.NewBetaDocumentBlock(anthropic.BetaURLPDFSourceParam{URL: url}))
 		default:
 			blocks = append(blocks, anthropic.NewBetaImageBlock(anthropic.BetaURLImageSourceParam{URL: url}))
@@ -54,13 +54,13 @@ func AnalyzeAssignment(ctx tool.Context, args AnalyzeAssignmentArgs) (*AnalysisR
 
 Be thorough — this analysis will be used to write the full assignment.`))
 
-	response, err := claudeService.Run(ctx, services.ClaudeServiceConfig{
+	response, err := claudeService.Run(ctx, anthropicModels.AnthropicServiceConfig{
 		Model: anthropic.ModelClaudeHaiku4_5_20251001,
 
 		//TODO: Make adjustable later
 		MaxTokens: 2048,
-		Messages: []services.AnthropicMessage{{
-			Role:          services.AnthropicRoleUser,
+		Messages: []anthropicModels.AnthropicMessage{{
+			Role:          anthropicModels.AnthropicRoleUser,
 			ContentBlocks: blocks,
 		}},
 		Betas: &[]anthropic.AnthropicBeta{anthropic.AnthropicBetaPDFs2024_09_25},
