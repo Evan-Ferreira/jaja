@@ -11,21 +11,27 @@ JAJA (Just Automate Junk Assignments) — a web app for saving D2L (Desire2Learn
 ### Full stack (Docker)
 
 ```bash
-# Start cloudflared tunnel on port 9000 (in a separate terminal)
+# Terminal 1: Start cloudflared tunnel on port 9000
 cloudflared tunnel --url http://localhost:9000
 
-# Then start the full stack
-docker compose up          # Starts db, redis, minio, server, and client with hot reload
+# Terminal 2: Start Docker services (db, redis, minio, server)
+docker compose up
+
+# Terminal 3: Start the frontend
+cd apps/client && bun dev
 ```
 
-- Frontend: http://localhost:3000
+**Service URLs:**
+- Frontend: http://localhost:3000 (from `bun dev` in Terminal 3)
 - Server: http://localhost:4000 (via Docker) or http://localhost:8080 (manual)
 - PostgreSQL: localhost:5432
 - Redis: localhost:6379
 - MinIO API: http://localhost:9000
 - MinIO Console: http://localhost:9001
 
-Note: The cloudflared tunnel URL (from the first command) should be set as `MINIO_PUBLIC_URL` in `apps/server/.env` for presigned URLs that Claude AI can access.
+**Important:** The client must be started separately with `bun dev` after `docker compose up`. Docker only starts the backend services (db, redis, minio, server).
+
+Note: The cloudflared tunnel URL (from Terminal 1) should be set as `MINIO_PUBLIC_URL` in `apps/server/.env` for presigned URLs that Claude AI can access.
 
 ### Frontend only (`apps/client/`)
 
