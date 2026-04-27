@@ -59,7 +59,6 @@ type PresignedDocument struct {
 	Type DocumentType
 }
 
-
 type AnthropicServiceConfig struct {
 	Model     anthropic.Model
 	MaxTokens int64
@@ -80,12 +79,19 @@ func New(modelName anthropic.Model) (*AnthropicModel, error) {
 		return nil, fmt.Errorf("ANTHROPIC_API_KEY is not set")
 	}
 
-	client := anthropic.NewClient(option.WithAPIKey(apiKey))
+	opts := []option.RequestOption{option.WithAPIKey(apiKey)}
+
+	baseURL := os.Getenv("ANTHROPIC_API_URL")
+	if baseURL != "" {
+		opts = append(opts, option.WithBaseURL(baseURL))
+	}
+	
+	client := anthropic.NewClient(opts...)
 	return &AnthropicModel{
 		Client:    &client,
 		ModelName: modelName,
 		MaxTokens: DefaultMaxTokens,
-	},nil
+	}, nil
 }
 
 func (anthropicModel *AnthropicModel) Run(ctx context.Context, config AnthropicServiceConfig) (*anthropic.BetaMessage, error) {
@@ -246,18 +252,19 @@ func InferDocumentType(rawURL string) DocumentType {
 	}
 	path = strings.ToLower(path)
 	switch {
-		case strings.HasSuffix(path, ".png"):
-			return DocumentTypePNG
-		case strings.HasSuffix(path, ".jpg"), strings.HasSuffix(path, ".jpeg"):
-			return DocumentTypeJPEG
-		case strings.HasSuffix(path, ".webp"):
-			return DocumentTypeWebP
-		case strings.HasSuffix(path, ".gif"):
-			return DocumentTypeGIF
-		default:
-			return DocumentTypePDF
+	case strings.HasSuffix(path, ".png"):
+		return DocumentTypePNG
+	case strings.HasSuffix(path, ".jpg"), strings.HasSuffix(path, ".jpeg"):
+		return DocumentTypeJPEG
+	case strings.HasSuffix(path, ".webp"):
+		return DocumentTypeWebP
+	case strings.HasSuffix(path, ".gif"):
+		return DocumentTypeGIF
+	default:
+		return DocumentTypePDF
 	}
 }
+
 // converts a list of presigned URLs to the appropriate
 // claude content blocks (BetaDocumentBlock for PDFs, BetaImageBlock for images).
 func buildDocumentBlocks(docs []PresignedDocument) ([]anthropic.BetaContentBlockParamUnion, error) {
