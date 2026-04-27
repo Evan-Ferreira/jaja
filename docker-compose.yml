@@ -30,10 +30,21 @@ services:
         volumes:
             - redis_data:/data
 
-    server:
+    mock-api:
+        image: jaja-server
         build:
             context: ./apps/server
             dockerfile: dockerfile
+        ports:
+            - '4010:4010'
+        environment:
+            MOCKAPI_PORT: '4010'
+        volumes:
+            - ./apps/server:/app
+        command: ["air", "-c", ".air.mockapi.toml"]
+
+    server:
+        image: jaja-server
         ports:
             - '4000:4000'
         volumes:
@@ -43,6 +54,7 @@ services:
         depends_on:
             - db
             - redis
+            - mock-api
 
 volumes:
     pgdata:

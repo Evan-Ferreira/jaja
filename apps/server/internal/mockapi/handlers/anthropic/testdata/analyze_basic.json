@@ -1,0 +1,18 @@
+{
+    "id": "msg_01TestFixtureAnalyzeBasic",
+    "type": "message",
+    "role": "assistant",
+    "model": "claude-haiku-4-5-20251001",
+    "content": [
+        {
+            "type": "text",
+            "text": "ASSIGNMENT ANALYSIS\n\n1. Assignment type: Analytical essay\n2. Requirements: Five-page critical analysis of the provided text, with a clear thesis and supporting evidence drawn from the source material.\n3. Key topics: Close reading, thematic analysis, textual evidence.\n4. Length: Approximately 1500 words.\n5. Formatting: MLA citation style, 12pt Times New Roman, double-spaced, 1-inch margins.\n6. Rubric: Thesis clarity (25%), use of evidence (30%), organization (20%), mechanics (25%).\n7. Other constraints: No outside sources permitted; analysis must be drawn entirely from the provided text."
+        }
+    ],
+    "stop_reason": "end_turn",
+    "stop_sequence": null,
+    "usage": {
+        "input_tokens": 150,
+        "output_tokens": 200
+    }
+}

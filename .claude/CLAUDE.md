@@ -24,12 +24,15 @@ cd apps/client && bun dev
 **Service URLs:**
 - Frontend: http://localhost:3000 (from `bun dev` in Terminal 3)
 - Server: http://localhost:4000 (via Docker) or http://localhost:8080 (manual)
+- Mock API: http://localhost:4010 (mockapi server, mocks Anthropic API responses)
 - PostgreSQL: localhost:5432
 - Redis: localhost:6379
 - MinIO API: http://localhost:9000
 - MinIO Console: http://localhost:9001
 
-**Important:** The client must be started separately with `bun dev` after `docker compose up`. Docker only starts the backend services (db, redis, minio, server).
+**Important:** The client must be started separately with `bun dev` after `docker compose up`. Docker starts the backend services (db, redis, minio, mock-api, server).
+
+Note: To use the mock API instead of the real Anthropic API, set `ANTHROPIC_API_URL=http://mock-api:4010` in `apps/server/.env` when running via Docker, or `ANTHROPIC_API_URL=http://localhost:4010` when running locally.
 
 Note: The cloudflared tunnel URL (from Terminal 1) should be set as `MINIO_PUBLIC_URL` in `apps/server/.env` for presigned URLs that Claude AI can access.
 
@@ -82,6 +85,45 @@ go run cmd/main.go  # Server includes agent initialization on startup
 
 The agent accepts a prompt (assignment description), processes it with tools (docx generation), and returns the completion result. See `/dev/run-agent` endpoint for usage.
 
+### Mock API server (`apps/server/cmd/mockapi/`)
+
+A standalone Anthropic API mock server for testing without consuming API quota. Runs on port 4010 (in Docker) or configurable via `MOCKAPI_PORT` env var.
+
+**Run mock API server:**
+
+```bash
+# Via Docker (auto-started with docker compose up)
+docker compose up mock-api
+
+# Manual (with Air hot reload)
+cd apps/server
+air -c .air.mockapi.toml
+```
+
+**Add fixtures:**
+
+Fixtures are embedded JSON responses stored in `internal/mockapi/handlers/anthropic/testdata/`. The `analyze_basic.json` fixture is embedded into the binary via `//go:embed` in `provider.go`:
+
+1. Create a new fixture file in `internal/mockapi/handlers/anthropic/testdata/` (e.g., `my_fixture.json`)
+2. Update `provider.go` to embed it and return it from the appropriate handler
+3. Example for `/v1/messages` endpoint: modify `HandleMessages()` to select fixtures based on request parameters
+
+**Add new endpoints:**
+
+1. Create handler function in `internal/mockapi/handlers/anthropic/provider.go` (or new handler file)
+2. Register route in `internal/mockapi/routes/anthropic.go` by adding to `RegisterAnthropicRoutes()`
+3. Example structure:
+   ```go
+   // In provider.go
+   func HandleNewEndpoint(c *gin.Context) {
+       // Return fixture or custom response
+       c.JSON(200, gin.H{"key": "value"})
+   }
+   
+   // In routes/anthropic.go
+   routes.GET("/new-endpoint", anthropic.HandleNewEndpoint)
+   ```
+
 ### Database migrations (Goose)
 
 Migrations live in `apps/server/migrations/` using Goose SQL format. GORM auto-migrates models on startup, but schema changes should also have corresponding Goose migration files. Environment variables for Goose are in the root `.env`.
@@ -99,6 +141,15 @@ apps/
 │   └── utils/string.ts   # parseStringToJSON() for tab-separated cookie/storage data
 └── server/               # Go 1.25 + Gin + GORM + Anthropic SDK + asynq
     ├── cmd/main.go       # Entry point: loads env, connects DB + Redis + S3 + Agent + Workers, sets up router
+    ├── cmd/mockapi/      # Mock Anthropic API server (port 4010)
+    │   └── main.go       # Entry point: Gin router with mock handlers
+    ├── internal/mockapi/ # Mock API implementation
+    │   ├── handlers/
+    │   │   └── anthropic/
+    │   │       ├── provider.go # Handlers: HandleMessages, HandleFileMetadata, HandleFileContent
+    │   │       └── testdata/   # Embedded JSON fixtures (analyze_basic.json)
+    │   └── routes/
+    │       └── anthropic.go # RegisterAnthropicRoutes - routes `/v1/messages`, `/v1/files/:id`, etc.
     ├── agent/            # Claude AI agent via Google ADK + Anthropic SDK
     │   ├── config.go     # ConnectAgent() initializes global AgentRunner
     │   ├── agents/       # Agent definitions
@@ -135,7 +186,9 @@ apps/
     │   │   ├── agent.go  # RunAgent wrapper
     │   │   └── s3.go     # S3 helpers
     │   └── routes/       # Route registration: RegisterD2LRoutes, RegisterDevRoutes
-    └── migrations/       # Goose SQL migration files (includes jobs table schema)
+    ├── migrations/       # Goose SQL migration files (includes jobs table schema)
+    ├── .air.toml         # Air config for main server (hot reload on :8080/4000)
+    └── .air.mockapi.toml # Air config for mock API server (hot reload on :4010)
 ```
 
 ### Key patterns
@@ -147,7 +200,8 @@ apps/
 - **Server → Redis/asynq**: Asynq job queue (`github.com/hibiken/asynq`) for background task processing. Global `config.RedisClient` initialized via `queue.ConnectRedis()` from `REDIS_URL` env var. Separate from the jobs table (DB-backed): DB polls jobs table, dispatches to handlers via asynq workers.
 - **Server → Jobs/Workers**: DB-backed job queue (`internal/models/jobs.go` + `internal/workers/workers.go`). Jobs table tracks status (pending/running/done/failed), type, payload, result. `workers.Server` polls pending jobs, dispatches to handlers in `internal/jobs/handlers/` based on job type (currently JobTypeDocx → HandleDocx).
 - **Server → S3**: AWS SDK Go v2 with MinIO (S3-compatible). Global `config.S3BasicsBucket` (BucketBasics struct) initialized via `storage.ConnectObjectStorage()` with static credentials. Helpers in `internal/storage/s3.go` provide CRUD, multipart uploads/downloads, copy, list, exists, presigned URLs. Connection validates via ListBuckets on startup. Presigned URLs signed with `MINIO_PUBLIC_URL` (external via cloudflared) or `MINIO_URL` (internal).
-- **Server → Claude AI Agent**: Anthropic SDK Go client (`github.com/anthropics/anthropic-sdk-go`) initialized from `ANTHROPIC_API_KEY`. `agent/runner/runner.go` runs the JAJA agent (Google ADK): takes assignment key, fetches from S3, runs LLM agent, generates `.docx` via `agent/tools/docx.go` (using unioffice), uploads result to S3, updates DB job status. `agent/agents/orchestrator.go` defines the agent with system prompt and docx tool. `agent/models/anthropic.go` adapts Anthropic SDK to ADK model interface (tool conversion, system prompts, max tokens).
+- **Server → Claude AI Agent**: Anthropic SDK Go client (`github.com/anthropics/anthropic-sdk-go`) initialized from `ANTHROPIC_API_KEY` and `ANTHROPIC_API_URL` (defaults to `https://api.anthropic.com`). `agent/runner/runner.go` runs the JAJA agent (Google ADK): takes assignment key, fetches from S3, runs LLM agent, generates `.docx` via `agent/tools/docx.go` (using unioffice), uploads result to S3, updates DB job status. `agent/agents/orchestrator.go` defines the agent with system prompt and docx tool. `agent/models/anthropic.go` adapts Anthropic SDK to ADK model interface (tool conversion, system prompts, max tokens). For testing, set `ANTHROPIC_API_URL` to mock API endpoint (e.g., `http://localhost:4010`).
+- **Mock API Server**: Standalone Gin server in `cmd/mockapi/` that mocks Anthropic API responses for testing and development. Runs independently on port 4010 (or `MOCKAPI_PORT` env var). Includes embedded JSON fixtures in `internal/mockapi/handlers/anthropic/testdata/`. Useful for testing agent behavior without consuming API quota or network calls.
 - **CORS**: Server reads `FRONTEND_URL` from env to configure allowed origins.
 - **shadcn/ui**: Uses Radix Lyra style with Phosphor Icons. Config in `components.json`.
 - **Path aliases**: `@/*` maps to project root in TypeScript.
@@ -157,8 +211,10 @@ apps/
 - Root `.env`: Used by docker-compose services
     - `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` — PostgreSQL credentials
     - `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` — MinIO S3 credentials
-- `apps/server/.env`: Used by Gin server
+- `apps/server/.env`: Used by Gin server and mock API
     - `PORT` — Server port (default 8080 for manual, Docker exposes 4000)
+    - `MOCKAPI_PORT` — Mock API port (default 4010, used by docker-compose)
+    - `ANTHROPIC_API_URL` — Anthropic API endpoint (default `https://api.anthropic.com`, set to `http://mock-api:4010` or `http://localhost:4010` to use mock server)
     - `FRONTEND_URL` — Client origin for CORS (e.g., http://localhost:3000)
     - `DB_URL` — PostgreSQL DSN (e.g., postgres://user:pass@db:5432/jaja)
     - `REDIS_URL` — Redis endpoint (e.g., redis:6379 in Docker, localhost:6379 for manual runs). **Required** — server fatally exits on startup if unset.
